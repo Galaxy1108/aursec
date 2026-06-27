@@ -40,19 +40,25 @@ static std::string read_line(const std::string& prompt, const std::string& defau
     return input;
 }
 
-static int select_interactive(const std::vector<std::string>& options, const std::string& header) {
+static int select_interactive(const std::vector<std::string>& options) {
     int sel = 0;
     int n = static_cast<int>(options.size());
 
-    auto draw = [&]() {
-        std::cout << "\033[2J\033[H" << header << "\n";
-        for (int i = 0; i < n; i++) {
-            if (i == sel) std::cout << "  " SEL " " << options[i] << " " RST;
-            else          std::cout << "  " << options[i];
-            if (i < n - 1) std::cout << "\n";
-        }
-        std::cout << "\033[J";
+    auto draw_line = [&](int idx, bool selected) {
+        std::cout << "\r\033[K";
+        if (selected) std::cout << "  " SEL " " << options[idx] << " " RST;
+        else          std::cout << "  " << options[idx];
     };
+
+    auto redraw_all = [&]() {
+        for (int i = 0; i < n; i++) {
+            draw_line(i, i == sel);
+            std::cout << "\n";
+        }
+        std::cout << "\033[" << (n - 1) << "A";
+    };
+
+    redraw_all();
 
     termios old;
     tcgetattr(STDIN_FILENO, &old);
@@ -61,8 +67,6 @@ static int select_interactive(const std::vector<std::string>& options, const std
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 1;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-
-    draw();
 
     while (true) {
         char c;
@@ -73,8 +77,14 @@ static int select_interactive(const std::vector<std::string>& options, const std
             if (read(STDIN_FILENO, &seq[0], 1) != 1) break;
             if (read(STDIN_FILENO, &seq[1], 1) != 1) break;
             if (seq[0] == '[') {
-                if (seq[1] == 'A' && sel > 0) { sel--; draw(); }
-                if (seq[1] == 'B' && sel < n - 1) { sel++; draw(); }
+                if (seq[1] == 'A' && sel > 0) {
+                    sel--;
+                    redraw_all();
+                }
+                if (seq[1] == 'B' && sel < n - 1) {
+                    sel++;
+                    redraw_all();
+                }
             }
         } else if (c == '\n' || c == '\r') {
             break;
@@ -84,7 +94,7 @@ static int select_interactive(const std::vector<std::string>& options, const std
         }
     }
 
-    std::cout << "\033[2J\033[H";
+    std::cout << "\033[" << (sel + 1) << "B\r\033[J";
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return sel;
 }
@@ -109,7 +119,8 @@ static std::vector<std::string> parse_outdated_packages(const std::string& outpu
 static int run_model_picker(const Config& cfg) {
     try {
         std::vector<std::string> models = list_models(cfg);
-        int sel = select_interactive(models, CYAN "可用模型：" RST);
+        std::cout << CYAN "可用模型：" RST << std::endl;
+        int sel = select_interactive(models);
         if (sel < 0) {
             std::cout << "已取消" << std::endl;
             return 1;
@@ -142,7 +153,8 @@ static int run_init() {
     std::cout << "正在验证 API Key..." << std::endl;
     try {
         std::vector<std::string> models = list_models(tmp);
-        int sel = select_interactive(models, CYAN "验证成功！可用模型：" RST);
+        std::cout << CYAN "验证成功！可用模型：" RST << std::endl;
+        int sel = select_interactive(models);
         if (sel < 0) {
             std::cerr << "已取消" << std::endl;
             return 1;
