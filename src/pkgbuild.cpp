@@ -1,6 +1,7 @@
 #include "pkgbuild.h"
 #include <curl/curl.h>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <regex>
@@ -8,6 +9,8 @@
 #include <set>
 #include <cmath>
 #include <cstdio>
+#include <sys/stat.h>
+#include <cstring>
 
 #define RST   "\033[0m"
 #define RED   "\033[31m"
@@ -349,9 +352,44 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
 #endif
 }
 
+static std::string bash_resolve(const std::string& raw, const std::string& pkgbuild) {
+    auto vars = extract_all_vars(pkgbuild);
+    std::string script;
+    for (const auto& [k, v] : vars) {
+        if (!v.empty()) {
+            std::string val = v;
+            size_t p = 0;
+            while ((p = val.find('\'', p)) != std::string::npos) { val.replace(p, 1, "'\\''"); p += 4; }
+            script += k + "='" + val + "'; ";
+        }
+    }
+    std::string r = raw;
+    size_t p = 0;
+    while ((p = r.find('\'', p)) != std::string::npos) { r.replace(p, 1, "'\\''"); p += 4; }
+    script += "echo '" + r + "'";
+
+    std::string tmp = "/tmp/aursec_resolve_" + std::to_string(getpid()) + ".sh";
+    {
+        std::ofstream f(tmp);
+        f << "#!/bin/bash\n" << script << "\n";
+    }
+    chmod(tmp.c_str(), 0755);
+
+    FILE* pipe = popen(("bash " + tmp + " 2>/dev/null").c_str(), "r");
+    if (!pipe) { unlink(tmp.c_str()); return raw; }
+
+    std::string result;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), pipe)) result += buf;
+    pclose(pipe);
+    unlink(tmp.c_str());
+
+    if (!result.empty() && result.back() == '\n') result.pop_back();
+    return result.empty() ? raw : result;
+}
+
 std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::string& pkgbuild) {
     std::vector<std::pair<std::string, std::string>> results;
-    auto vars = extract_all_vars(pkgbuild);
 
     // Parse source=() blocks
     std::vector<std::string> raw_urls;
@@ -363,11 +401,11 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
         std::sregex_iterator eit(body.begin(), body.end(), entry_re);
         for (; eit != std::sregex_iterator(); ++eit) {
             std::string entry = (*eit)[1].str();
+            // Resolve all bash variables and parameter expansions
+            entry = bash_resolve(entry, pkgbuild);
             // Handle "filename::URL" format
             size_t sep = entry.find("::");
             std::string url = (sep != std::string::npos) ? entry.substr(sep + 2) : entry;
-            url = resolve_vars(url, vars);
-            if (url.find("${") != std::string::npos) continue;
             if (url.find("http://") == 0 || url.find("https://") == 0)
                 raw_urls.push_back(url);
         }
