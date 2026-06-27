@@ -423,6 +423,8 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
             if (cfg.review_level == "deep") {
                 auto src = fetch_source_files(pkgname);
                 for (auto& f : src) review_sources.push_back(std::move(f));
+                auto urls = fetch_source_urls(content, pkgname);
+                for (auto& f : urls) review_sources.push_back(std::move(f));
             }
         }
 
@@ -707,6 +709,10 @@ int main(int argc, char* argv[]) {
         if (level == "deep") {
             auto src = fetch_source_files(p.name);
             for (auto& f : src) {
+                review_sources.push_back(std::move(f));
+            }
+            auto urls = fetch_source_urls(p.content, p.name);
+            for (auto& f : urls) {
                 review_sources.push_back(std::move(f));
             }
         }

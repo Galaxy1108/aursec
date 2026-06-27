@@ -48,7 +48,8 @@ inline std::string prompt_by_level(const std::string& level, const std::string& 
     if (level == "normal") {
         base += "\n\n你将同时收到 .install 等辅助安装脚本，请注意安装阶段的 post_install 操作是否存在风险。";
     } else if (level == "deep") {
-        base += "\n\n你将同时收到 .install 等辅助安装脚本以及从 source=() 下载的构建脚本。"
+        base += "\n\n你将同时收到 .install 等辅助安装脚本、从 source=() 下载的构建脚本以及"
+                "从远程 URL 下载的源码文件（已在 source/ 目录中标注）。"
                 "请注意构建过程和安装过程中是否包含恶意代码（如 curl/wget 未知 URL、base64 解码执行、"
                 "修改系统关键文件等）。";
     }
