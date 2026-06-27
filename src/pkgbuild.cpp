@@ -40,7 +40,7 @@ static curl_off_t head_file_size(const std::string& url) {
 }
 
 static std::string popen_fetch(const std::string& url, int timeout_sec = 15, bool fail_on_http_error = true, bool show_progress = false) {
-    std::string progress = show_progress ? " --progress-bar" : " -s";
+    std::string progress = show_progress ? " -#" : " -s";
     std::string cmd = "curl -L" + progress + " --connect-timeout " + std::to_string(timeout_sec / 2)
         + " --max-time " + std::to_string(timeout_sec)
         + (fail_on_http_error ? " -f" : "") + " -o- " + url;
