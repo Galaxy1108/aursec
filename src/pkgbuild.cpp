@@ -28,20 +28,8 @@ static size_t write_cb(void* data, size_t size, size_t nmemb, std::string* buf) 
     return total;
 }
 
-static curl_off_t head_file_size(const std::string& url) {
-    std::string cmd = "curl -sI -L --connect-timeout 5 --max-time 10 -o /dev/null -w '%{size_download}' " + url + " 2>/dev/null";
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) return -1;
-    char buf[64];
-    std::string result;
-    if (fgets(buf, sizeof(buf), pipe)) result = buf;
-    pclose(pipe);
-    try { return std::stoll(result); } catch (...) { return -1; }
-}
-
-static std::string popen_fetch(const std::string& url, int timeout_sec = 15, bool fail_on_http_error = true, bool show_progress = false) {
-    std::string progress = show_progress ? " -#" : " -s";
-    std::string cmd = "curl -L" + progress + " --connect-timeout " + std::to_string(timeout_sec / 2)
+static std::string popen_fetch(const std::string& url, int timeout_sec = 15, bool fail_on_http_error = true) {
+    std::string cmd = "curl -s -L --connect-timeout " + std::to_string(timeout_sec / 2)
         + " --max-time " + std::to_string(timeout_sec)
         + (fail_on_http_error ? " -f" : "") + " -o- " + url;
     FILE* pipe = popen(cmd.c_str(), "r");
@@ -60,6 +48,56 @@ static std::string popen_fetch(const std::string& url, int timeout_sec = 15, boo
 
 static std::string curl_fetch(const std::string& url) {
     return popen_fetch(url);
+}
+
+static void popen_fetch_progress(const std::string& url, std::string& data, double& size_mb) {
+    // HEAD: get size
+    curl_off_t total = 0;
+    {
+        std::string hcmd = "curl -sI -L --connect-timeout 5 --max-time 10 -o /dev/null -w '%{size_download}' " + url + " 2>/dev/null";
+        FILE* hpipe = popen(hcmd.c_str(), "r");
+        char hbuf[64];
+        if (hpipe) {
+            if (fgets(hbuf, sizeof(hbuf), hpipe)) {
+                try { total = std::stoll(hbuf); } catch (...) { total = 0; }
+            }
+            pclose(hpipe);
+        }
+    }
+
+    // Download with progress
+    std::string cmd = "curl -s -L -f --connect-timeout 15 --max-time 120 -o- " + url;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) throw std::runtime_error("popen failed");
+
+    char buf[8192];
+    size_t received = 0;
+    while (true) {
+        size_t n = fread(buf, 1, sizeof(buf), pipe);
+        if (n == 0) break;
+        data.append(buf, n);
+        received += n;
+
+        if (received > 50ULL * 1024 * 1024) {
+            pclose(pipe);
+            data.clear();
+            throw std::runtime_error("file too large (>50MB)");
+        }
+
+        if (total > 0) {
+            int pct = static_cast<int>(received * 100 / total);
+            int bar_w = 20;
+            int fill = pct * bar_w / 100;
+            std::cerr << "\r\033[K     [" << std::string(fill, '#')
+                      << std::string(bar_w - fill, ' ') << "] " << pct << "%" << std::flush;
+        }
+    }
+
+    int status = pclose(pipe);
+    size_mb = (double)received / (1024.0 * 1024.0);
+
+    if (status != 0 || data.empty())
+        throw std::runtime_error("curl exit code " + std::to_string(status));
 }
 
 static bool is_text_ext(const std::string& path) {
@@ -153,15 +191,7 @@ static bool is_archive_ext(const std::string& path) {
     return false;
 }
 
-static std::string popen_fetch_with_size(const std::string& url, double& size_mb) {
-    std::string body = popen_fetch(url, 30, true, true);
-    size_mb = (double)body.size() / (1024.0 * 1024.0);
-    if (body.size() > 50 * 1024 * 1024) {
-        body.clear();
-        throw std::runtime_error("file too large (>50MB)");
-    }
-    return body;
-}
+// REMOVED: popen_fetch_with_size replaced by popen_fetch_progress
 
 #ifdef HAVE_LIBARCHIVE
 static void extract_from_memory(const std::string& data, std::vector<std::pair<std::string, std::string>>& files,
@@ -365,24 +395,16 @@ std::vector<std::pair<std::string, std::string>> fetch_downloaded_urls(const Con
         double size_mb = 0;
         std::string data;
 
-        // Check size before downloading
-        curl_off_t head_size = head_file_size(url);
-        if (head_size > 50 * 1024 * 1024) {
-            std::string fname = url.substr(url.find_last_of('/') + 1);
-            std::cout << "    文件: " << fname << " (" << fmt_size((double)head_size) << ") " YELL "跳过（过大）" RST << std::endl;
-            continue;
-        }
-
+        std::cout << "    下载: " << url << std::endl;
         try {
-            std::cout << "    下载: " << url << std::endl;
-            data = popen_fetch_with_size(url, size_mb);
-            std::cout << "    大小: " << fmt_size(size_mb * 1024 * 1024) << std::endl;
+            popen_fetch_progress(url, data, size_mb);
+            std::cerr << "\r\033[K     \033[32m完成\033[0m: " << fmt_size(size_mb * 1024 * 1024) << std::endl;
         } catch (const std::exception& e) {
             std::string msg = e.what();
             if (msg.find("too large") != std::string::npos) {
-                std::cout << YELL "    跳过: " << msg << RST << std::endl;
+                std::cerr << "\r\033[K     " YELL "跳过: " << msg << RST << std::endl;
             } else {
-                std::cerr << RED "    下载失败: " << url << RST << std::endl;
+                std::cerr << "\r\033[K     " RED "下载失败: " << url << RST << std::endl;
             }
             continue;
         }
