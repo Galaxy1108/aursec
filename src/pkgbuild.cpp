@@ -28,6 +28,17 @@ static size_t write_cb(void* data, size_t size, size_t nmemb, std::string* buf) 
     return total;
 }
 
+static curl_off_t head_file_size(const std::string& url) {
+    std::string cmd = "curl -sI -L --connect-timeout 5 --max-time 10 -o /dev/null -w '%{size_download}' " + url + " 2>/dev/null";
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) return -1;
+    char buf[64];
+    std::string result;
+    if (fgets(buf, sizeof(buf), pipe)) result = buf;
+    pclose(pipe);
+    try { return std::stoll(result); } catch (...) { return -1; }
+}
+
 static std::string popen_fetch(const std::string& url, int timeout_sec = 15, bool fail_on_http_error = true) {
     std::string cmd = "curl -s -L --connect-timeout " + std::to_string(timeout_sec / 2)
         + " --max-time " + std::to_string(timeout_sec)
@@ -352,6 +363,14 @@ std::vector<std::pair<std::string, std::string>> fetch_downloaded_urls(const Con
         const std::string& url = urls[ui];
         double size_mb = 0;
         std::string data;
+
+        // Check size before downloading
+        curl_off_t head_size = head_file_size(url);
+        if (head_size > 50 * 1024 * 1024) {
+            std::string fname = url.substr(url.find_last_of('/') + 1);
+            std::cout << "    文件: " << fname << " (" << fmt_size((double)head_size) << ") " YELL "跳过（过大）" RST << std::endl;
+            continue;
+        }
 
         try {
             std::cout << "    下载: " << url << std::endl;
