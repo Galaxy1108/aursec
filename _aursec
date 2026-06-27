@@ -1,0 +1,29 @@
+#compdef aursec
+
+_aursec() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '--help[显示此帮助]' \
+    '--aursec-version[显示版本]' \
+    '--init[交互式配置 API Key / 模型 / Base URL]' \
+    '--no-ai[跳过 AI 审查，直接透传 yay]' \
+    '--set-model[交互式切换模型]' \
+    '--set-review-level[交互式设置审查细致级别]' \
+    '--set-strictness[交互式设置审查严格度]' \
+    '--prompt-default[恢复默认提示词]' \
+    '--prompt-file[设置自定义提示词]:提示词文件:_files' \
+    '--review[审查本地文件或 URL 的 PKGBUILD]:文件:_files' \
+    '--set-context[设置可疑行上下文显示行数]:行数:' \
+    '--set-max-chars[设置 AI 消息长度警告阈值]:字符数:' \
+    '--set-max-file-size[设置下载文件大小上限]:大小(MB):' \
+    '--set-confirm-reject[设置 REJECT 时是否确认继续安装]:是否:(true false)' \
+    '*::yay 参数:->yayargs' && return 0
+
+  if [[ $state == yayargs ]]; then
+    _normal && return 0
+  fi
+}
+
+_aursec
