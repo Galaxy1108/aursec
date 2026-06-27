@@ -4,6 +4,16 @@
 #include <sstream>
 #include "config.h"
 
+inline std::string format_instructions() {
+    return R"(
+回复格式：第一行必须以 PASS: 或 REJECT: 开头。
+发现风险时标注行号：:数字! 描述（确认恶意）
+                     :数字? 描述（可疑）
+文件名前缀（可选，省略时为当前 PKGBUILD）：
+  文件名:数字! 描述
+  文件名:数字? 描述)";
+}
+
 inline std::string default_prompt() {
     return R"(你是一名 Arch Linux PKGBUILD 安全审查员。请审查下方提供的 PKGBUILD 内容，判断是否存在真实的安全风险。
 
@@ -19,17 +29,21 @@ inline std::string default_prompt() {
 2. source 来源：是否使用 HTTPS？是否有直接执行远程脚本的行为？
 3. checksums：source 来自外部 URL 但 checksum 为 SKIP 才需标记。
 4. depends/makedepends：是否引入已知恶意包？
-
-回答格式（必须严格以以下格式开头）：
-PASS: 简要理由
-或者
-REJECT: 具体风险描述
-
-注意：只对真实的、有明确证据的恶意行为判 REJECT。不确定时请判 PASS。)";
+)";
 }
 
-inline std::string prompt_by_level(const std::string& level) {
+inline std::string strictness_note(const std::string& strictness) {
+    if (strictness == "none") {
+        return "注意：无论风险如何，你的回复必须以 PASS: 开头。在理由中列出你发现的所有风险。";
+    } else if (strictness == "strict") {
+        return "注意：对任何可疑模式（个人仓库、SKIP、无签名、不明来源等）都应判 REJECT。";
+    }
+    return "注意：只对真实的、有明确证据的恶意行为判 REJECT。不确定时请判 PASS。";
+}
+
+inline std::string prompt_by_level(const std::string& level, const std::string& strictness) {
     std::string base = default_prompt();
+    base += strictness_note(strictness);
     if (level == "normal") {
         base += "\n\n你将同时收到 .install 等辅助安装脚本，请注意安装阶段的 post_install 操作是否存在风险。";
     } else if (level == "deep") {
@@ -37,19 +51,19 @@ inline std::string prompt_by_level(const std::string& level) {
                 "请注意构建过程和安装过程中是否包含恶意代码（如 curl/wget 未知 URL、base64 解码执行、"
                 "修改系统关键文件等）。";
     }
+    base += format_instructions();
     return base;
 }
 
-inline std::string load_prompt(const Config& cfg, const std::string& level_override = "") {
-    std::string level = level_override.empty() ? cfg.review_level : level_override;
-
+inline std::string load_prompt(const Config& cfg) {
     if (!cfg.prompt_file.empty()) {
         std::ifstream f(cfg.prompt_file);
         if (f.is_open()) {
             std::ostringstream ss;
             ss << f.rdbuf();
-            if (!ss.str().empty()) return ss.str();
+            if (!ss.str().empty())
+                return ss.str() + "\n\n" + format_instructions();
         }
     }
-    return prompt_by_level(level);
+    return prompt_by_level(cfg.review_level, cfg.strictness);
 }

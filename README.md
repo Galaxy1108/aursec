@@ -28,26 +28,17 @@ sudo pacman -U aursec-*.pkg.tar.zst
 aursec --init
 ```
 
-交互式输入 DeepSeek API Key → 验证 → 选择模型 → **选择加密方式 → 保存**。
+交互式配置：API Key → 验证 → 选模型 → Base URL → 加密方式 → 审查级别 → 严格度 → 拒绝确认 → 保存。
 
 ### 加密方式
 
-`--init` 时会检测系统可用的加密方式并让用户选择：
-
 | 方式 | 条件 | 说明 |
 |------|------|------|
-| 系统密钥环 | libsecret 可用 (GNOME Keyring / KDE Wallet) | Key 存入受密码保护的系统密钥环 |
-| AES-256-CBC | 始终可用 | Key 加密后存入 config，密钥派生自 `/etc/machine-id` |
+| 系统密钥环 | libsecret 可用 | Key 存入受密码保护的系统密钥环 |
+| AES-256-CBC | 始终可用 | Key 加密后存入 config |
 | 不加密 | 始终可选择 | Key 明文存储 |
 
-环境变量优先级更高：`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `AI_MODEL`
-
-## 审查级别
-
-```bash
-aursec --set-review-level              # 交互式选择并持久保存
-aursec --review-level normal -Syu      # 临时覆盖本次操作
-```
+### 审查级别
 
 | 级别 | 说明 |
 |------|------|
@@ -55,22 +46,36 @@ aursec --review-level normal -Syu      # 临时覆盖本次操作
 | normal | PKGBUILD + AUR 辅助文件 (.install 等) |
 | deep | PKGBUILD + 辅助 + source=() 构建脚本（需 libarchive） |
 
+### 审查严格度
+
+| 级别 | 行为 |
+|------|------|
+| none | 不拦截，仅显示风险 |
+| normal | 拦截确认恶意的代码（默认） |
+| strict | 拦截可疑及恶意代码 |
+
+### 拒绝确认
+
+AI 判 REJECT 时询问是否仍要安装，`--init` 时可关闭此确认。
+
 ## 使用
 
 ```bash
 aursec                    # 等效 aursec -Syu
-aursec -Syu               # 升级所有包（AUR 包经 AI 审查）
-aursec -S firefox         # 安装 firefox（经 AI 审查）
+aursec --set-strictness   # 交互式选择严格度
+aursec --set-context 5    # 设置上下文行数
+aursec --set-review-level # 交互式选择审查级别
+aursec --review ./PKGBUILD # 审查本地 PKGBUILD
 aursec --no-ai -S pkg     # 跳过审查直接安装
-aursec -Ss keyword        # 搜索，透传 yay
 ```
 
-## 工作原理
+## 自定义提示词
 
-1. 识别安装操作（`-S`, `-Su`, `-Syu`, `-U`, 裸包名）
-2. 从 AUR 下载 PKGBUILD
-3. 调用 DeepSeek API 审查安全性（source 来源、checksum、危险命令等）
-4. PASS → 执行 yay 安装；REJECT → 退出码 1
+```bash
+aursec --prompt-file ~/my-prompt.txt
+```
+
+aursec 会自动追加回复格式说明，自定义文件中只需写审查规则。
 
 ## License
 

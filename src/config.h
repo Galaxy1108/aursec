@@ -9,6 +9,9 @@ struct Config {
     std::string model = "deepseek-chat";
     std::string prompt_file;
     std::string review_level = "basic";
+    std::string strictness = "normal";
+    int context_lines = 2;
+    bool confirm_reject = true;
     EncMethod enc_method = EncMethod::Plain;
     std::string key_cipher;
     std::string key_salt;

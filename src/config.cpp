@@ -244,6 +244,9 @@ Config load_config() {
             if (j.contains("model")) cfg.model = j["model"].get<std::string>();
             if (j.contains("prompt_file")) cfg.prompt_file = j["prompt_file"].get<std::string>();
             if (j.contains("review_level")) cfg.review_level = j["review_level"].get<std::string>();
+            if (j.contains("strictness")) cfg.strictness = j["strictness"].get<std::string>();
+            if (j.contains("context_lines")) cfg.context_lines = j["context_lines"].get<int>();
+            if (j.contains("confirm_reject")) cfg.confirm_reject = j["confirm_reject"].get<bool>();
             if (j.contains("key_cipher")) cfg.key_cipher = j["key_cipher"].get<std::string>();
             if (j.contains("key_salt")) cfg.key_salt = j["key_salt"].get<std::string>();
 
@@ -303,6 +306,9 @@ void save_config(const Config& cfg) {
     j["model"] = to_save.model;
     if (!to_save.prompt_file.empty()) j["prompt_file"] = to_save.prompt_file;
     j["review_level"] = cfg.review_level;
+    j["strictness"] = cfg.strictness;
+    j["context_lines"] = cfg.context_lines;
+    j["confirm_reject"] = cfg.confirm_reject;
 
     switch (cfg.enc_method) {
         case EncMethod::Cipher:

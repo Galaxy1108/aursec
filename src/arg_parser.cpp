@@ -102,9 +102,15 @@ ParseResult parse_args(int argc, char* argv[]) {
             result.type = OpType::SetReviewLevel;
             return result;
         }
-        if (a == "--review-level") {
+        if (a == "--set-strictness") {
+            result.type = OpType::SetStrictness;
+            return result;
+        }
+        if (a == "--set-context") {
+            result.type = OpType::SetContext;
             if (i + 1 < argc && argv[i + 1][0] != '-')
-                result.review_level_opt = argv[i + 1];
+                result.context_opt = argv[i + 1];
+            return result;
         }
         if (a == "--review") {
             result.type = OpType::ReviewFile;
@@ -125,10 +131,6 @@ ParseResult parse_args(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "--no-ai") {
             result.no_ai = true;
-            continue;
-        }
-        if (arg == "--review-level") {
-            i++; // skip flag and its value
             continue;
         }
         if (!arg.empty() && arg[0] == '-') {

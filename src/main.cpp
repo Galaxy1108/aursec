@@ -10,6 +10,11 @@
 #include <unistd.h>
 #include <sstream>
 #include <csignal>
+#include <iomanip>
+#include <regex>
+#include <algorithm>
+#include <set>
+#include <map>
 
 #define RST   "\033[0m"
 #define GREEN "\033[32m"
@@ -151,6 +156,98 @@ static int run_level_picker(Config& cfg) {
     return 0;
 }
 
+struct Mark {
+    std::string file;
+    int line;
+    bool is_malicious; // true=! false=?
+};
+
+static std::vector<Mark> parse_marks(const std::string& reason) {
+    std::vector<Mark> marks;
+    std::regex re(R"(([\w.-]+)?:(\d+)([!?]))");
+    std::sregex_iterator it(reason.begin(), reason.end(), re), end;
+    for (; it != end; ++it) {
+        Mark m;
+        m.file = (*it)[1].matched ? (*it)[1].str() : "";
+        m.line = std::stoi((*it)[2].str());
+        m.is_malicious = (*it)[3].str() == "!";
+        marks.push_back(m);
+    }
+    return marks;
+}
+
+static void print_context(
+    const std::vector<std::pair<std::string, std::string>>& sources,
+    const std::vector<Mark>& marks,
+    int context_lines)
+{
+    if (marks.empty()) return;
+
+    // Build file→content map
+    std::map<std::string, std::string> file_map;
+    for (const auto& [name, content] : sources)
+        file_map[name] = content;
+
+    // Group marks by file
+    std::map<std::string, std::vector<int>> file_marks;
+    for (const auto& m : marks) {
+        std::string f = m.file.empty() ? sources[0].first : m.file;
+        file_marks[f].push_back(m.line);
+    }
+    std::map<std::string, std::set<int>> malicious_lines;
+    for (const auto& m : marks)
+        if (m.is_malicious)
+            malicious_lines[m.file.empty() ? sources[0].first : m.file].insert(m.line);
+
+    for (const auto& [fname, lines] : file_marks) {
+        auto it = file_map.find(fname);
+        if (it == file_map.end()) continue;
+
+        // Split content into lines
+        std::vector<std::string> file_lines;
+        std::istringstream stream(it->second);
+        std::string line;
+        while (std::getline(stream, line))
+            file_lines.push_back(line);
+        int total = static_cast<int>(file_lines.size());
+
+        // Collect ranges
+        std::set<int> covered;
+        for (int l : lines) {
+            for (int i = std::max(1, l - context_lines); i <= std::min(total, l + context_lines); i++)
+                covered.insert(i);
+        }
+
+        // Output
+        int width = std::to_string(total).size();
+        for (int i : covered) {
+            std::cout << "    " CYAN << fname << " "
+                      << std::setw(width) << i << RST "│ ";
+            bool is_mal = malicious_lines[fname].count(i);
+            if (is_mal)
+                std::cout << RED;
+            else if (std::find(lines.begin(), lines.end(), i) != lines.end())
+                std::cout << YELL;
+            std::cout << file_lines[i - 1] << RST << std::endl;
+        }
+    }
+}
+
+static int run_strictness_picker(Config& cfg) {
+    std::vector<std::string> opts = {
+        "none   - 不拦截，仅显示风险",
+        "normal - 拦截确认恶意的代码",
+        "strict - 拦截可疑及恶意代码",
+    };
+    std::cout << CYAN "请选择审查严格度：" RST << std::endl;
+    int sel = select_interactive(opts);
+    if (sel < 0) return 1;
+    if (sel == 0) cfg.strictness = "none";
+    else if (sel == 1) cfg.strictness = "normal";
+    else cfg.strictness = "strict";
+    return 0;
+}
+
 static int run_init() {
     auto existing = load_config();
     std::cout << "=== aursec 初始化配置 ===" << std::endl;
@@ -203,6 +300,19 @@ static int run_init() {
         if (run_level_picker(tmp) != 0) {
             std::cerr << "已取消" << std::endl;
             return 1;
+        }
+
+        if (run_strictness_picker(tmp) != 0) {
+            std::cerr << "已取消" << std::endl;
+            return 1;
+        }
+
+        {
+            std::vector<std::string> yn_opts = {"是", "否"};
+            std::cout << CYAN "AI 拒绝时是否询问是否继续安装？" RST << std::endl;
+            int yn_sel = select_interactive(yn_opts);
+            if (yn_sel < 0) { std::cerr << "已取消" << std::endl; return 1; }
+            tmp.confirm_reject = (yn_sel == 0);
         }
 
         save_config(tmp);
@@ -319,7 +429,15 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
         std::cout << "正在 AI 审查 " << name << "..." << std::endl;
         try {
             auto result = review_pkgbuilds(cfg, review_sources);
-            if (result.passed) {
+
+            if (!result.passed || cfg.strictness == "none") {
+                auto marks = parse_marks(result.reason);
+                print_context(review_sources, marks, cfg.context_lines);
+            }
+
+            if (cfg.strictness == "none") {
+                std::cout << YELL "  " << name << ": " << result.reason << RST << std::endl;
+            } else if (result.passed) {
                 std::cout << GREEN "  " << name << ": 通过 - " << result.reason << RST << std::endl;
             } else {
                 std::cout << RED "  " << name << ": 拒绝 - " << result.reason << RST << std::endl;
@@ -346,8 +464,9 @@ static int print_help() {
         "  --prompt-file <路径>  设置自定义提示词\n"
         "  --prompt-default    恢复默认提示词\n"
         "  --review <文件|URL>  审查本地文件或 URL 的 PKGBUILD\n"
-        "  --review-level <级别>  临时覆盖审查级别 (basic/normal/deep)\n"
         "  --set-review-level   交互式设置审查级别\n"
+        "  --set-strictness     交互式设置审查严格度\n"
+        "  --set-context <行数>  设置可疑行上下文显示行数\n"
         "  --no-ai            跳过 AI 审查，直接透传 yay\n"
         "\n"
         "查看 yay 帮助: aursec --no-ai --help  或  aursec -h\n"
@@ -356,7 +475,7 @@ static int print_help() {
         "  aursec                        升级所有包\n"
         "  aursec --no-ai -S pkg         跳过审查直接安装\n"
         "  aursec --review ./PKGBUILD    审查本地 PKGBUILD\n"
-        "  aursec --review-level deep -Syu  临时用 deep 级别\n"
+        "  aursec --set-context 5        设置上下文 5 行\n"
         "  aursec --prompt-file ~/my.txt 使用自定义提示词\n";
     return 0;
 }
@@ -398,6 +517,45 @@ int main(int argc, char* argv[]) {
         }
         save_config(cfg);
         std::cout << "审查级别已设置为: " << cfg.review_level << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
+    if (parsed.type == OpType::SetStrictness) {
+        Config cfg = load_config();
+        if (!cfg.loaded) {
+            std::cerr << RED "错误: 未配置 API Key。请先运行 aursec --init" RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        if (run_strictness_picker(cfg) != 0) {
+            std::cerr << "已取消" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        save_config(cfg);
+        std::cout << "严格度已设置为: " << cfg.strictness << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
+    if (parsed.type == OpType::SetContext) {
+        Config cfg = load_config();
+        if (parsed.context_opt.empty()) {
+            std::cerr << "用法: aursec --set-context <行数>" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        try {
+            cfg.context_lines = std::stoi(parsed.context_opt);
+            if (cfg.context_lines < 0) throw std::exception();
+        } catch (...) {
+            std::cerr << RED "无效行数: " << parsed.context_opt << RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        save_config(cfg);
+        std::cout << "上下文行数已设置为: " << cfg.context_lines << std::endl;
         curl_global_cleanup();
         return 0;
     }
@@ -450,8 +608,6 @@ int main(int argc, char* argv[]) {
             curl_global_cleanup();
             return 1;
         }
-        if (!parsed.review_level_opt.empty())
-            cfg.review_level = parsed.review_level_opt;
         int ret = run_review(cfg, parsed.review_files);
         curl_global_cleanup();
         return ret;
@@ -500,8 +656,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::string level = parsed.review_level_opt.empty() ? cfg.review_level : parsed.review_level_opt;
-    cfg.review_level = level; // ensure load_prompt uses the correct level
+    std::string level = cfg.review_level;
 
     std::cout << CYAN "正在下载 PKGBUILD..." RST << std::endl;
     auto pkgs = fetch_pkgbuilds(parsed.packages);
@@ -545,12 +700,34 @@ int main(int argc, char* argv[]) {
 
         try {
             auto result = review_pkgbuilds(cfg, review_sources);
-            if (result.passed) {
+
+            // Print marks with context
+            if (!result.passed || cfg.strictness == "none") {
+                auto marks = parse_marks(result.reason);
+                print_context(review_sources, marks, cfg.context_lines);
+            }
+
+            if (cfg.strictness == "none") {
+                // never block, always show risks
+                std::cout << YELL "  " << p.name << ": " << result.reason << RST << std::endl;
+                approved.push_back(p.name);
+            } else if (result.passed) {
                 std::cout << GREEN "  " << p.name << ": 通过 - " << result.reason << RST << std::endl;
                 approved.push_back(p.name);
             } else {
                 std::cout << RED "  " << p.name << ": 拒绝 - " << result.reason << RST << std::endl;
-                rejected.push_back(p.name);
+                if (cfg.confirm_reject) {
+                    std::cout << "是否仍要安装 " << p.name << "？ [y/N] " << std::flush;
+                    std::string input;
+                    std::getline(std::cin, input);
+                    if (input == "y" || input == "Y") {
+                        approved.push_back(p.name);
+                    } else {
+                        rejected.push_back(p.name);
+                    }
+                } else {
+                    rejected.push_back(p.name);
+                }
             }
         } catch (const std::exception& e) {
             std::cerr << RED "  " << p.name << ": 审查失败 - " << e.what() << RST << std::endl;

@@ -2,7 +2,7 @@
 # Contributor: 
 
 pkgname=aursec
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="yay wrapper - AI review of PKGBUILD before every install/upgrade"
 arch=('x86_64')
