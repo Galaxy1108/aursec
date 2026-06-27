@@ -174,7 +174,7 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
         try {
             tarball = curl_fetch(url);
         } catch (const std::exception& e) {
-            std::cout << "    下载失败: " << name << ".tar.gz（" << e.what() << "）" << std::endl;
+            std::cerr << RED "    下载失败: " << name << ".tar.gz" RST << std::endl;
             return files;
         }
     }
