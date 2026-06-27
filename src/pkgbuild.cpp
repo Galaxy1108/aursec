@@ -35,6 +35,7 @@ static std::string curl_fetch(const std::string& url) {
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
 
     CURLcode res = curl_easy_perform(curl);
@@ -133,6 +134,7 @@ static std::string curl_fetch_with_size(const std::string& url, double& size_mb)
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 
     CURLcode res = curl_easy_perform(curl);
     curl_off_t dl_size = 0;
@@ -227,6 +229,7 @@ std::vector<PkgbuildResult> fetch_pkgbuilds(const std::vector<std::string>& pack
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
         curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+        curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 
         CURLcode res = curl_easy_perform(curl);
         long http_code = 0;
