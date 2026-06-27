@@ -39,14 +39,14 @@ static void test_parse_review_without_colon() {
 }
 
 static void test_parse_args_init() {
-    const char* av[] = {"install_aur", "--init", nullptr};
+    const char* av[] = {"aura", "--init", nullptr};
     auto r = parse_args(2, const_cast<char**>(av));
     assert(r.type == OpType::Init);
     std::cout << "  --init test: OK" << std::endl;
 }
 
 static void test_parse_args_no_ai() {
-    const char* av[] = {"install_aur", "--no-ai", "-S", "firefox", nullptr};
+    const char* av[] = {"aura", "--no-ai", "-S", "firefox", nullptr};
     auto r = parse_args(4, const_cast<char**>(av));
     assert(r.no_ai);
     assert(r.type == OpType::Install);
@@ -56,7 +56,7 @@ static void test_parse_args_no_ai() {
 }
 
 static void test_parse_args_Syu() {
-    const char* av[] = {"install_aur", "-Syu", nullptr};
+    const char* av[] = {"aura", "-Syu", nullptr};
     auto r = parse_args(2, const_cast<char**>(av));
     assert(r.type == OpType::Install);
     assert(r.packages.empty());
@@ -64,14 +64,14 @@ static void test_parse_args_Syu() {
 }
 
 static void test_parse_args_Ss() {
-    const char* av[] = {"install_aur", "-Ss", "firefox", nullptr};
+    const char* av[] = {"aura", "-Ss", "firefox", nullptr};
     auto r = parse_args(3, const_cast<char**>(av));
     assert(r.type == OpType::Passthru);
     std::cout << "  -Ss (search) test: OK" << std::endl;
 }
 
 static void test_parse_args_bare_name() {
-    const char* av[] = {"install_aur", "firefox", nullptr};
+    const char* av[] = {"aura", "firefox", nullptr};
     auto r = parse_args(2, const_cast<char**>(av));
     assert(r.type == OpType::Install);
     assert(r.packages.size() == 1);
@@ -80,21 +80,21 @@ static void test_parse_args_bare_name() {
 }
 
 static void test_parse_args_Qi() {
-    const char* av[] = {"install_aur", "-Qi", "firefox", nullptr};
+    const char* av[] = {"aura", "-Qi", "firefox", nullptr};
     auto r = parse_args(3, const_cast<char**>(av));
     assert(r.type == OpType::Passthru);
     std::cout << "  -Qi (query info) test: OK" << std::endl;
 }
 
 static void test_parse_args_R() {
-    const char* av[] = {"install_aur", "-R", "firefox", nullptr};
+    const char* av[] = {"aura", "-R", "firefox", nullptr};
     auto r = parse_args(3, const_cast<char**>(av));
     assert(r.type == OpType::Passthru);
     std::cout << "  -R (remove) test: OK" << std::endl;
 }
 
 static void test_parse_args_multiple_pkgs() {
-    const char* av[] = {"install_aur", "-S", "pkg1", "pkg2", "pkg3", nullptr};
+    const char* av[] = {"aura", "-S", "pkg1", "pkg2", "pkg3", nullptr};
     auto r = parse_args(5, const_cast<char**>(av));
     assert(r.type == OpType::Install);
     assert(r.packages.size() == 3);
@@ -105,7 +105,7 @@ static void test_parse_args_multiple_pkgs() {
 }
 
 static void test_parse_args_yay_argv_passthru() {
-    const char* av[] = {"install_aur", "-Ss", "keyword", nullptr};
+    const char* av[] = {"aura", "-Ss", "keyword", nullptr};
     auto r = parse_args(3, const_cast<char**>(av));
     assert(r.yay_argv.size() == 4); // program + -Ss + keyword + nullptr
     assert(std::string(r.yay_argv[1]) == "-Ss");
@@ -114,7 +114,7 @@ static void test_parse_args_yay_argv_passthru() {
 }
 
 static void test_parse_args_no_ai_passthru() {
-    const char* av[] = {"install_aur", "--no-ai", "-R", "firefox", nullptr};
+    const char* av[] = {"aura", "--no-ai", "-R", "firefox", nullptr};
     auto r = parse_args(4, const_cast<char**>(av));
     assert(r.no_ai);
     assert(r.type == OpType::Passthru);

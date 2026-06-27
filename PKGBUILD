@@ -1,12 +1,12 @@
-# Maintainer: install_aur contributors
+# Maintainer: aura contributors
 # Contributor: 
 
-pkgname=install_aur
+pkgname=aura
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="yay wrapper - AI review of PKGBUILD before every install/upgrade"
 arch=('x86_64')
-url="https://github.com/user/install_aur"
+url="https://github.com/user/aura"
 license=('MIT')
 depends=('yay' 'curl' 'nlohmann-json')
 makedepends=('cmake')
@@ -17,17 +17,17 @@ build() {
     cd "$srcdir/$pkgname"
     cmake -B build \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DBUILD_TESTS=OFF \
+        -DBUILD_TESTS=ON \
         -DCMAKE_BUILD_TYPE=Release
     cmake --build build
 }
 
 check() {
     cd "$srcdir/$pkgname"
-    ./build/test_install_aur
+    ./build/test_aura
 }
 
 package() {
     cd "$srcdir/$pkgname"
-    install -Dm755 build/install_aur "$pkgdir/usr/bin/install_aur"
+    install -Dm755 build/aura "$pkgdir/usr/bin/aura"
 }
