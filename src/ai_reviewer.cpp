@@ -152,3 +152,45 @@ ReviewResult review_pkgbuilds(const Config& cfg,
     std::string content = j["choices"][0]["message"]["content"].get<std::string>();
     return parse_review_response(content);
 }
+
+std::vector<std::string> ai_resolve_urls(const Config& cfg,
+    const std::string& pkgbuild,
+    const std::vector<std::string>& entries)
+{
+    nlohmann::json body;
+    body["model"] = cfg.model;
+    body["temperature"] = 0.1;
+
+    nlohmann::json msgs;
+    msgs.push_back({{"role", "system"}, {"content",
+        "你是一个 PKGBUILD source URL 解析器。"
+        "根据 PKGBUILD 中的变量定义，展开 source URL 中的所有 bash 变量"
+        "（如 ${pkgver}、${_pkgname}、${pkgname%-bin} 等）。"
+        "只返回展开后的 URL，每行一个，不要添加任何其他内容。"}});
+
+    std::ostringstream user;
+    user << "PKGBUILD：\n";
+    std::istringstream stream(pkgbuild);
+    std::string line;
+    int lineno = 1;
+    while (std::getline(stream, line))
+        user << lineno++ << "│" << line << "\n";
+    user << "\n需要展开的 URL：\n";
+    for (const auto& e : entries)
+        user << "  " << e << "\n";
+    msgs.push_back({{"role", "user"}, {"content", user.str()}});
+
+    body["messages"] = msgs;
+    std::string resp = api_post(cfg, "/v1/chat/completions", body.dump());
+    auto j = nlohmann::json::parse(resp);
+    std::string content = j["choices"][0]["message"]["content"].get<std::string>();
+
+    std::vector<std::string> urls;
+    std::istringstream rs(content);
+    while (std::getline(rs, line)) {
+        if (line.empty()) continue;
+        if (line.find("http://") == 0 || line.find("https://") == 0)
+            urls.push_back(line);
+    }
+    return urls;
+}

@@ -1,4 +1,5 @@
 #include "pkgbuild.h"
+#include "ai_reviewer.h"
 #include <curl/curl.h>
 #include <iostream>
 #include <fstream>
@@ -341,91 +342,34 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
 #endif
 }
 
-static std::string bash_resolve(const std::string& raw, const std::string& pkgbuild) {
-    std::string script;
-    std::istringstream stream(pkgbuild);
-    std::string line;
-    while (std::getline(stream, line)) {
-        size_t eq = line.find('=');
-        if (eq == std::string::npos || eq == 0) continue;
-        std::string k = line.substr(0, eq);
-        while (!k.empty() && (k[0] == ' ' || k[0] == '\t')) k.erase(0, 1);
-        if (k.empty()) continue;
-        bool valid = true;
-        for (char c : k)
-            if (!isalnum(c) && c != '_') { valid = false; break; }
-        if (!valid || k == "source" || k.find("source_") == 0 || k.find("sha256sums") == 0) continue;
-
-        std::string v = line.substr(eq + 1);
-        // Skip assignments with command substitution (security)
-        if (v.find("$(") != std::string::npos || v.find('`') != std::string::npos) continue;
-        script += line + "\n";
-    }
-
-    std::string r = raw;
-    size_t p = 0;
-    while ((p = r.find('\\', p)) != std::string::npos) { r.replace(p, 1, "\\\\"); p += 2; }
-    p = 0; while ((p = r.find('"', p)) != std::string::npos) { r.replace(p, 1, "\\\""); p += 2; }
-    p = 0; while ((p = r.find("$(", p)) != std::string::npos) { r.replace(p, 2, "\\$("); p += 2; }
-    p = 0; while ((p = r.find('`', p)) != std::string::npos) { r.replace(p, 1, "\\`"); p += 2; }
-    script += "echo \"" + r + "\"";
-
-    std::string tmp = "/tmp/aursec_resolve_" + std::to_string(getpid()) + ".sh";
-    {
-        std::ofstream f(tmp);
-        f << "#!/bin/bash\n" << script << "\n";
-    }
-    chmod(tmp.c_str(), 0755);
-
-    FILE* pipe = popen(("timeout 3 bash " + tmp + " 2>/dev/null").c_str(), "r");
-    if (!pipe) { unlink(tmp.c_str()); return raw; }
-
-    std::string result;
-    char buf[4096];
-    while (fgets(buf, sizeof(buf), pipe)) result += buf;
-    int status = pclose(pipe);
-    unlink(tmp.c_str());
-
-    if (result.empty() && status != 0) return raw;
-    while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) result.pop_back();
-    return result.empty() ? raw : result;
-}
-
-std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::string& pkgbuild) {
+std::vector<std::pair<std::string, std::string>> fetch_source_urls(const Config& cfg, const std::string& pkgbuild) {
     std::vector<std::pair<std::string, std::string>> results;
 
     // Parse source=() blocks
-    std::vector<std::string> raw_urls;
+    std::vector<std::string> raw_entries;
     std::regex source_block(R"(source(?:_\w+)?=\(\s*([^)]*?)\s*\))");
     std::sregex_iterator it(pkgbuild.begin(), pkgbuild.end(), source_block), end;
     for (; it != end; ++it) {
         std::string body = (*it)[1].str();
         std::regex entry_re(R"(['\"]((?:[^'\"\\]|\\.)*)['\"])");
         std::sregex_iterator eit(body.begin(), body.end(), entry_re);
-        for (; eit != std::sregex_iterator(); ++eit) {
-            std::string entry = (*eit)[1].str();
-            // Resolve all bash variables and parameter expansions
-            entry = bash_resolve(entry, pkgbuild);
-            // Handle "filename::URL" format
-            size_t sep = entry.find("::");
-            std::string url = (sep != std::string::npos) ? entry.substr(sep + 2) : entry;
-            if (url.find("http://") == 0 || url.find("https://") == 0)
-                raw_urls.push_back(url);
-        }
+        for (; eit != std::sregex_iterator(); ++eit)
+            raw_entries.push_back((*eit)[1].str());
     }
 
-    // Deduplicate
-    std::sort(raw_urls.begin(), raw_urls.end());
-    raw_urls.erase(std::unique(raw_urls.begin(), raw_urls.end()), raw_urls.end());
+    if (raw_entries.empty()) return results;
 
-    if (raw_urls.empty()) return results;
+    // Let AI resolve all URLs in one call
+    std::cout << "  正在解析 source URL 中的变量..." << std::endl;
+    auto resolved = ai_resolve_urls(cfg, pkgbuild, raw_entries);
+    if (resolved.empty()) return results;
 
     std::cout << "  正在下载外部源码..." << std::endl;
     int file_count = 0;
     const int max_downloads = 5;
 
-    for (size_t ui = 0; ui < raw_urls.size() && ui < (size_t)max_downloads; ui++) {
-        const std::string& url = raw_urls[ui];
+    for (size_t ui = 0; ui < resolved.size() && ui < (size_t)max_downloads; ui++) {
+        const std::string& url = resolved[ui];
         double size_mb = 0;
         std::string data;
 
