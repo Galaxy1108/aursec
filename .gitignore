@@ -1,6 +1,6 @@
 build/
-src/
 pkg/
+src/install_aur/
 *.pkg.tar.zst
 *.tar.gz
 *.tar.zst
