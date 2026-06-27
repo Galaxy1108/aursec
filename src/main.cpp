@@ -682,7 +682,7 @@ int main(int argc, char* argv[]) {
         std::cout << "正在 AI 审查 " << p.name << "..." << std::endl;
 
         // Collect extra files based on level
-        std::vector<std::pair<std::string, std::string>> review_sources = {{p.name, p.content}};
+        std::vector<std::pair<std::string, std::string>> review_sources = {{"PKGBUILD", p.content}};
 
         if (level == "normal" || level == "deep") {
             auto aux = fetch_aux_files(p.name, p.content);

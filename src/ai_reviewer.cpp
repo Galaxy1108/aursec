@@ -131,7 +131,13 @@ ReviewResult review_pkgbuilds(const Config& cfg,
     std::ostringstream user_content;
     user_content << "请审查以下 " << pkgs.size() << " 个 PKGBUILD：\n\n";
     for (const auto& [name, content] : pkgs) {
-        user_content << "=== " << name << " ===\n" << content << "\n\n";
+        user_content << "=== " << name << " ===\n";
+        std::istringstream stream(content);
+        std::string line;
+        int lineno = 1;
+        while (std::getline(stream, line))
+            user_content << lineno++ << "│" << line << "\n";
+        user_content << "\n";
     }
     msgs.push_back({{"role", "user"}, {"content", user_content.str()}});
 

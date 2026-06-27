@@ -7,6 +7,7 @@
 inline std::string format_instructions() {
     return R"(
 回复格式：第一行必须以 PASS: 或 REJECT: 开头。
+行号已标注在每行左侧（如 "18│"），请直接引用。
 发现风险时标注行号：:数字! 描述（确认恶意）
                      :数字? 描述（可疑）
 文件名前缀（可选，省略时为当前 PKGBUILD）：
