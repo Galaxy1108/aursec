@@ -44,21 +44,17 @@ static int select_interactive(const std::vector<std::string>& options) {
     int sel = 0;
     int n = static_cast<int>(options.size());
 
-    auto draw_line = [&](int idx, bool selected) {
-        std::cout << "\r\033[K";
-        if (selected) std::cout << "  " SEL " " << options[idx] << " " RST;
-        else          std::cout << "  " << options[idx];
-    };
-
-    auto redraw_all = [&]() {
+    auto draw_all = [&]() {
         for (int i = 0; i < n; i++) {
-            draw_line(i, i == sel);
+            std::cout << "\r\033[K";
+            if (i == sel) std::cout << "  " SEL " " << options[i] << " " RST;
+            else          std::cout << "  " << options[i];
             std::cout << "\n";
         }
-        std::cout << "\033[" << (n - 1) << "A";
     };
 
-    redraw_all();
+    std::cout << "\033[s";
+    draw_all();
 
     termios old;
     tcgetattr(STDIN_FILENO, &old);
@@ -79,11 +75,13 @@ static int select_interactive(const std::vector<std::string>& options) {
             if (seq[0] == '[') {
                 if (seq[1] == 'A' && sel > 0) {
                     sel--;
-                    redraw_all();
+                    std::cout << "\033[u";
+                    draw_all();
                 }
                 if (seq[1] == 'B' && sel < n - 1) {
                     sel++;
-                    redraw_all();
+                    std::cout << "\033[u";
+                    draw_all();
                 }
             }
         } else if (c == '\n' || c == '\r') {
@@ -94,7 +92,7 @@ static int select_interactive(const std::vector<std::string>& options) {
         }
     }
 
-    std::cout << "\033[" << (sel + 1) << "B\r\033[J";
+    std::cout << "\033[u\033[" << (sel + 1) << "B\r\033[J";
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return sel;
 }
