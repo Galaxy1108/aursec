@@ -124,7 +124,7 @@ ReviewResult review_pkgbuilds(const Config& cfg,
     body["temperature"] = 0.1;
 
     nlohmann::json msgs;
-    msgs.push_back({{"role", "system"}, {"content", system_prompt()}});
+    msgs.push_back({{"role", "system"}, {"content", load_prompt(cfg)}});
 
     std::ostringstream user_content;
     user_content << "请审查以下 " << pkgs.size() << " 个 PKGBUILD：\n\n";

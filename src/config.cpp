@@ -35,6 +35,7 @@ Config load_config() {
             if (j.contains("api_key")) cfg.api_key = j["api_key"].get<std::string>();
             if (j.contains("base_url")) cfg.base_url = j["base_url"].get<std::string>();
             if (j.contains("model")) cfg.model = j["model"].get<std::string>();
+            if (j.contains("prompt_file")) cfg.prompt_file = j["prompt_file"].get<std::string>();
         } catch (...) {}
     }
     cfg.api_key = get_env("DEEPSEEK_API_KEY", cfg.api_key);
@@ -51,6 +52,7 @@ void save_config(const Config& cfg) {
     j["api_key"] = cfg.api_key;
     j["base_url"] = cfg.base_url;
     j["model"] = cfg.model;
+    if (!cfg.prompt_file.empty()) j["prompt_file"] = cfg.prompt_file;
     std::ofstream f(config_path());
     f << j.dump(2) << std::endl;
 }

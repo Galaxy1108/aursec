@@ -1,7 +1,10 @@
 #pragma once
 #include <string>
+#include <fstream>
+#include <sstream>
+#include "config.h"
 
-inline std::string system_prompt() {
+inline std::string default_prompt() {
     return R"(你是一名 Arch Linux PKGBUILD 安全审查员。请审查下方提供的 PKGBUILD 内容，判断是否存在真实的安全风险。
 
 审查原则：
@@ -23,4 +26,16 @@ PASS: 简要理由
 REJECT: 具体风险描述
 
 注意：只对真实的、有明确证据的恶意行为判 REJECT。不确定时请判 PASS。)";
+}
+
+inline std::string load_prompt(const Config& cfg) {
+    if (!cfg.prompt_file.empty()) {
+        std::ifstream f(cfg.prompt_file);
+        if (f.is_open()) {
+            std::ostringstream ss;
+            ss << f.rdbuf();
+            if (!ss.str().empty()) return ss.str();
+        }
+    }
+    return default_prompt();
 }

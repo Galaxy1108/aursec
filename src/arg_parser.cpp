@@ -84,6 +84,16 @@ ParseResult parse_args(int argc, char* argv[]) {
             result.type = OpType::SetModel;
             return result;
         }
+        if (a == "--prompt-default") {
+            result.type = OpType::PromptDefault;
+            return result;
+        }
+        if (a == "--prompt-file") {
+            result.type = OpType::PromptFile;
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                result.prompt_file_opt = argv[i + 1];
+            return result;
+        }
         if (a == "--review") {
             result.type = OpType::ReviewFile;
             for (int j = i + 1; j < argc; j++) {

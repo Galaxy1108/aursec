@@ -284,6 +284,35 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (parsed.type == OpType::PromptFile) {
+        Config cfg = load_config();
+        if (parsed.prompt_file_opt.empty()) {
+            std::cerr << "用法: aursec --prompt-file <路径>" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        std::ifstream test(parsed.prompt_file_opt);
+        if (!test.is_open()) {
+            std::cerr << RED "无法打开文件: " << parsed.prompt_file_opt << RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        cfg.prompt_file = parsed.prompt_file_opt;
+        save_config(cfg);
+        std::cout << GREEN "自定义提示词已设置: " << parsed.prompt_file_opt << RST << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
+    if (parsed.type == OpType::PromptDefault) {
+        Config cfg = load_config();
+        cfg.prompt_file.clear();
+        save_config(cfg);
+        std::cout << GREEN "已恢复默认提示词" RST << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
     if (parsed.type == OpType::ReviewFile) {
         Config cfg = load_config();
         if (!cfg.loaded) {
