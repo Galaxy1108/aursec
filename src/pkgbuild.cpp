@@ -388,6 +388,12 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
             if (file_count >= 10) break;
             std::string fname = url.substr(url.find_last_of('/') + 1);
             std::string size_str = fmt_size(data.size());
+
+            if (!is_text_ext(fname)) {
+                std::cout << "    文件: " << fname << " (" << size_str << ") " YELL "✗ 跳过（非文本）" RST << std::endl;
+                continue;
+            }
+
             bool binary = false;
             for (char c : data) {
                 if (c == 0) { binary = true; break; }
