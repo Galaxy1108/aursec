@@ -99,8 +99,12 @@ static void popen_fetch_progress(const std::string& url, std::string& data, doub
     int status = pclose(pipe);
     size_mb = (double)received / (1024.0 * 1024.0);
 
-    if (status != 0 || data.empty())
-        throw std::runtime_error("curl exit code " + std::to_string(status));
+    if (status != 0 || data.empty()) {
+        int ec = WEXITSTATUS(status);
+        if (ec == 63)  // CURLE_FILESIZE_EXCEEDED
+            throw std::runtime_error("file too large (> " + std::to_string(max_mb) + "MB)");
+        throw std::runtime_error("download failed (exit " + std::to_string(ec) + ")");
+    }
 }
 
 static bool is_text_ext(const std::string& path) {
