@@ -515,6 +515,7 @@ static int print_help() {
         "  --set-strictness     交互式设置审查严格度\n"
         "  --set-context <行数>  设置可疑行上下文显示行数\n"
         "  --set-max-chars <字符数>  设置 AI 消息长度警告阈值\n"
+        "  --set-confirm-reject  设置 REJECT 时是否确认继续安装\n"
         "  --no-ai            跳过 AI 审查，直接透传 yay\n"
         "\n"
         "查看 yay 帮助: aursec --no-ai --help  或  aursec -h\n"
