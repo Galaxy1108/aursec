@@ -367,7 +367,7 @@ static std::string bash_resolve(const std::string& raw, const std::string& pkgbu
     size_t p = 0;
     while ((p = r.find('\\', p)) != std::string::npos) { r.replace(p, 1, "\\\\"); p += 2; }
     p = 0; while ((p = r.find('"', p)) != std::string::npos) { r.replace(p, 1, "\\\""); p += 2; }
-    p = 0; while ((p = r.find('$', p)) != std::string::npos) { r.replace(p, 1, "\\$"); p += 2; }
+    p = 0; while ((p = r.find("$(", p)) != std::string::npos) { r.replace(p, 2, "\\$("); p += 2; }
     p = 0; while ((p = r.find('`', p)) != std::string::npos) { r.replace(p, 1, "\\`"); p += 2; }
     script += "echo \"" + r + "\"";
 
