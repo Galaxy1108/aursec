@@ -53,8 +53,10 @@ static int select_interactive(const std::vector<std::string>& options) {
         }
     };
 
-    std::cout << "\033[s";
+    auto up = [n]() { if (n > 0) std::cout << "\033[" << n << "A"; };
+
     draw_all();
+    up();
 
     termios old;
     tcgetattr(STDIN_FILENO, &old);
@@ -73,16 +75,8 @@ static int select_interactive(const std::vector<std::string>& options) {
             if (read(STDIN_FILENO, &seq[0], 1) != 1) break;
             if (read(STDIN_FILENO, &seq[1], 1) != 1) break;
             if (seq[0] == '[') {
-                if (seq[1] == 'A' && sel > 0) {
-                    sel--;
-                    std::cout << "\033[u";
-                    draw_all();
-                }
-                if (seq[1] == 'B' && sel < n - 1) {
-                    sel++;
-                    std::cout << "\033[u";
-                    draw_all();
-                }
+                if (seq[1] == 'A' && sel > 0) { sel--; up(); draw_all(); up(); }
+                if (seq[1] == 'B' && sel < n - 1) { sel++; up(); draw_all(); up(); }
             }
         } else if (c == '\n' || c == '\r') {
             break;
@@ -92,7 +86,7 @@ static int select_interactive(const std::vector<std::string>& options) {
         }
     }
 
-    std::cout << "\033[u\033[J";
+    if (n > 0) std::cout << "\033[" << n << "A\033[J";
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return sel;
 }
