@@ -299,7 +299,7 @@ int main(int argc, char* argv[]) {
         }
         cfg.prompt_file = parsed.prompt_file_opt;
         save_config(cfg);
-        std::cout << GREEN "自定义提示词已设置: " << parsed.prompt_file_opt << RST << std::endl;
+        std::cout << "自定义提示词已设置: " << parsed.prompt_file_opt << std::endl;
         curl_global_cleanup();
         return 0;
     }
@@ -308,7 +308,7 @@ int main(int argc, char* argv[]) {
         Config cfg = load_config();
         cfg.prompt_file.clear();
         save_config(cfg);
-        std::cout << GREEN "已恢复默认提示词" RST << std::endl;
+        std::cout << "已恢复默认提示词" << std::endl;
         curl_global_cleanup();
         return 0;
     }
