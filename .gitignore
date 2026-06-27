@@ -1,6 +1,7 @@
 build/
 pkg/
 src/aursec/
+aursec/
 *.pkg.tar.zst
 *.tar.gz
 *.tar.zst
