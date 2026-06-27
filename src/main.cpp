@@ -560,6 +560,19 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (parsed.type == OpType::SetConfirmReject) {
+        Config cfg = load_config();
+        std::vector<std::string> yn_opts = {"是", "否"};
+        std::cout << CYAN "AI 拒绝时是否询问是否继续安装？" RST << std::endl;
+        int sel = select_interactive(yn_opts);
+        if (sel < 0) { std::cerr << "已取消" << std::endl; curl_global_cleanup(); return 1; }
+        cfg.confirm_reject = (sel == 0);
+        save_config(cfg);
+        std::cout << "拒绝确认已设置为: " << (cfg.confirm_reject ? "是" : "否") << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
     if (parsed.type == OpType::Help) {
         int ret = print_help();
         curl_global_cleanup();

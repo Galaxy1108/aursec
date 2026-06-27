@@ -106,6 +106,10 @@ ParseResult parse_args(int argc, char* argv[]) {
             result.type = OpType::SetStrictness;
             return result;
         }
+        if (a == "--set-confirm-reject") {
+            result.type = OpType::SetConfirmReject;
+            return result;
+        }
         if (a == "--set-context") {
             result.type = OpType::SetContext;
             if (i + 1 < argc && argv[i + 1][0] != '-')

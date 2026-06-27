@@ -110,7 +110,9 @@ std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::stri
         try {
             std::string content = curl_fetch(url);
             files.emplace_back(pkgname + ".install", content);
-        } catch (...) {}
+        } catch (const std::exception& e) {
+            std::cout << "    下载失败: " << pkgname << ".install（" << e.what() << "）" << std::endl;
+        }
     }
 
     // Parse install= line from PKGBUILD
@@ -130,7 +132,9 @@ std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::stri
                 try {
                     std::string content = curl_fetch(furl);
                     files.emplace_back(fname, content);
-                } catch (...) {}
+                } catch (const std::exception& e) {
+                    std::cout << "    下载失败: " << fname << "（" << e.what() << "）" << std::endl;
+                }
             }
         }
         pos = pkgbuild.find("install=", end);
@@ -152,7 +156,10 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
         std::cout << "  正在下载源码快照: " << name << ".tar.gz" << std::endl;
         try {
             tarball = curl_fetch(url);
-        } catch (...) { return files; }
+        } catch (const std::exception& e) {
+            std::cout << "    下载失败: " << name << ".tar.gz（" << e.what() << "）" << std::endl;
+            return files;
+        }
     }
 
     if (tarball.empty()) return files;

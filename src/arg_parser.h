@@ -15,6 +15,7 @@ enum class OpType {
     SetReviewLevel,
     SetStrictness,
     SetContext,
+    SetConfirmReject,
 };
 
 struct ParseResult {
