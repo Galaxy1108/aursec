@@ -365,8 +365,11 @@ static std::string bash_resolve(const std::string& raw, const std::string& pkgbu
     }
     std::string r = raw;
     size_t p = 0;
-    while ((p = r.find('\'', p)) != std::string::npos) { r.replace(p, 1, "'\\''"); p += 4; }
-    script += "echo '" + r + "'";
+    while ((p = r.find('\\', p)) != std::string::npos) { r.replace(p, 1, "\\\\"); p += 2; }
+    p = 0; while ((p = r.find('"', p)) != std::string::npos) { r.replace(p, 1, "\\\""); p += 2; }
+    p = 0; while ((p = r.find('$', p)) != std::string::npos) { r.replace(p, 1, "\\$"); p += 2; }
+    p = 0; while ((p = r.find('`', p)) != std::string::npos) { r.replace(p, 1, "\\`"); p += 2; }
+    script += "echo \"" + r + "\"";
 
     std::string tmp = "/tmp/aursec_resolve_" + std::to_string(getpid()) + ".sh";
     {
