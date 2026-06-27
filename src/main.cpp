@@ -40,7 +40,20 @@ static std::string read_line(const std::string& prompt, const std::string& defau
     return input;
 }
 
-static int select_interactive(const std::vector<std::string>& options) {
+static int select_interactive(const std::vector<std::string>& options, const std::string& header) {
+    int sel = 0;
+    int n = static_cast<int>(options.size());
+
+    auto draw = [&]() {
+        std::cout << "\033[2J\033[H" << header << "\n";
+        for (int i = 0; i < n; i++) {
+            if (i == sel) std::cout << "  " SEL " " << options[i] << " " RST;
+            else          std::cout << "  " << options[i];
+            if (i < n - 1) std::cout << "\n";
+        }
+        std::cout << "\033[J";
+    };
+
     termios old;
     tcgetattr(STDIN_FILENO, &old);
     termios raw = old;
@@ -48,19 +61,6 @@ static int select_interactive(const std::vector<std::string>& options) {
     raw.c_cc[VMIN] = 1;
     raw.c_cc[VTIME] = 1;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
-
-    int sel = 0;
-    int n = static_cast<int>(options.size());
-
-    auto draw = [&]() {
-        std::cout << "\r\033[J";
-        for (int i = 0; i < n; i++) {
-            if (i > 0) std::cout << "\n";
-            if (i == sel) std::cout << "  " SEL " " << options[i] << " " RST;
-            else          std::cout << "  " << options[i];
-        }
-        std::cout << "\r\033[" << (n - 1) << "A";
-    };
 
     draw();
 
@@ -84,7 +84,7 @@ static int select_interactive(const std::vector<std::string>& options) {
         }
     }
 
-    std::cout << "\r\033[J";
+    std::cout << "\033[2J\033[H";
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return sel;
 }
@@ -109,8 +109,7 @@ static std::vector<std::string> parse_outdated_packages(const std::string& outpu
 static int run_model_picker(const Config& cfg) {
     try {
         std::vector<std::string> models = list_models(cfg);
-        std::cout << CYAN "可用模型：" RST << std::endl;
-        int sel = select_interactive(models);
+        int sel = select_interactive(models, CYAN "可用模型：" RST);
         if (sel < 0) {
             std::cout << "已取消" << std::endl;
             return 1;
@@ -143,8 +142,7 @@ static int run_init() {
     std::cout << "正在验证 API Key..." << std::endl;
     try {
         std::vector<std::string> models = list_models(tmp);
-        std::cout << CYAN "验证成功！可用模型：" RST << std::endl;
-        int sel = select_interactive(models);
+        int sel = select_interactive(models, CYAN "验证成功！可用模型：" RST);
         if (sel < 0) {
             std::cerr << "已取消" << std::endl;
             return 1;
