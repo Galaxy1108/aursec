@@ -29,7 +29,7 @@ static bool is_non_install_flag(const std::string& arg) {
     if (arg == "--search" || arg == "--info" || arg == "--list" ||
         arg == "--groups" || arg == "--clean" || arg == "--query" ||
         arg == "--remove" || arg == "--files" || arg == "--database" ||
-        arg == "--help" || arg == "--version")
+        arg == "--version")
         return true;
     if (arg.size() >= 2 && arg[0] == '-' && arg[1] == 'Q') return true;
     if (arg.size() >= 2 && arg[0] == '-' && arg[1] == 'R') return true;
@@ -72,7 +72,7 @@ ParseResult parse_args(int argc, char* argv[]) {
 
     for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
-        if (a == "--aursec-help") {
+        if (a == "--help") {
             result.type = OpType::Help;
             return result;
         }
