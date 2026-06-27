@@ -47,7 +47,7 @@ static int select_interactive(const std::vector<std::string>& options) {
     auto draw_all = [&]() {
         for (int i = 0; i < n; i++) {
             std::cout << "\r\033[K";
-            if (i == sel) std::cout << "  " SEL " " << options[i] << " " RST;
+            if (i == sel) std::cout << "  " SEL << options[i] << RST;
             else          std::cout << "  " << options[i];
             std::cout << "\n";
         }
