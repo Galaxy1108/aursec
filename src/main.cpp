@@ -137,10 +137,10 @@ static int run_model_picker(const Config& cfg) {
 
 static int run_level_picker(Config& cfg) {
     std::vector<std::string> level_opts;
-    level_opts.push_back("basic   - 仅审查 PKGBUILD");
-    level_opts.push_back("normal  - PKGBUILD + AUR 辅助文件");
+    level_opts.push_back("basic   - 快速审查：仅分析 PKGBUILD 本身");
+    level_opts.push_back("normal  - 标准审查：分析 PKGBUILD 及其辅助安装脚本");
     if (detect_libarchive())
-        level_opts.push_back("deep    - PKGBUILD + 辅助 + source=() 脚本（⚠ 显著增加耗时）");
+        level_opts.push_back("deep    - 深度审查：同时下载并分析 source=() 中的源码文件（需 AI 变量展开 + 网络下载，耗时较长）");
 
     std::cout << CYAN "请选择审查级别：" RST << std::endl;
     int sel = select_interactive(level_opts);
@@ -239,9 +239,9 @@ static void print_context(
 
 static int run_strictness_picker(Config& cfg) {
     std::vector<std::string> opts = {
-        "none   - 不拦截，仅显示风险",
-        "normal - 拦截确认恶意的代码",
-        "strict - 拦截可疑及恶意代码",
+        "none   - 仅显示风险，不阻止安装",
+        "normal - 拒绝有明确证据的恶意行为（默认）",
+        "strict - 对任何可疑模式（SKIP、个人仓库等）也拒绝",
     };
     std::cout << CYAN "请选择审查严格度：" RST << std::endl;
     int sel = select_interactive(opts);
