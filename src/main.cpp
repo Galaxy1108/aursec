@@ -140,7 +140,7 @@ static int run_level_picker(Config& cfg) {
     level_opts.push_back("basic   - 仅审查 PKGBUILD");
     level_opts.push_back("normal  - PKGBUILD + AUR 辅助文件");
     if (detect_libarchive())
-        level_opts.push_back("deep    - PKGBUILD + 辅助 + source=() 脚本");
+        level_opts.push_back("deep    - PKGBUILD + 辅助 + source=() 脚本（⚠ 显著增加耗时）");
 
     std::cout << CYAN "请选择审查级别：" RST << std::endl;
     int sel = select_interactive(level_opts);
