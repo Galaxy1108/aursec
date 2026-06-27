@@ -155,7 +155,11 @@ static void extract_from_memory(const std::string& data, std::vector<std::pair<s
     archive_read_support_format_all(a);
 
     int r = archive_read_open_memory(a, data.data(), data.size());
-    if (r != ARCHIVE_OK) { archive_read_free(a); return; }
+    if (r != ARCHIVE_OK) {
+        std::cerr << RED "    解包失败: 无法打开归档" RST << std::endl;
+        archive_read_free(a);
+        return;
+    }
 
     struct archive_entry* entry;
     int extracted = 0;
@@ -189,6 +193,9 @@ static void extract_from_memory(const std::string& data, std::vector<std::pair<s
             else reason = "已达上限";
             std::cout << "    文件: " << pathname << " (" << size_str << ") " YELL "跳过（" << reason << "）" RST << std::endl;
         }
+    }
+    if (extracted == 0) {
+        std::cout << YELL "    解包完成，未找到文本文件" RST << std::endl;
     }
     archive_read_free(a);
 }
