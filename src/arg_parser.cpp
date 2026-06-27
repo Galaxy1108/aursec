@@ -108,6 +108,8 @@ ParseResult parse_args(int argc, char* argv[]) {
         }
         if (a == "--set-confirm-reject") {
             result.type = OpType::SetConfirmReject;
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                result.context_opt = argv[i + 1];
             return result;
         }
         if (a == "--set-context") {

@@ -325,14 +325,6 @@ static int run_init() {
             return 1;
         }
 
-        {
-            std::vector<std::string> yn_opts = {"是", "否"};
-            std::cout << CYAN "AI 拒绝时是否询问是否继续安装？" RST << std::endl;
-            int yn_sel = select_interactive(yn_opts);
-            if (yn_sel < 0) { std::cerr << "已取消" << std::endl; return 1; }
-            tmp.confirm_reject = (yn_sel == 0);
-        }
-
         save_config(tmp);
         std::cout << "配置已保存到 ~/.config/aursec/config.json" << std::endl;
 
@@ -516,7 +508,7 @@ static int print_help() {
         "  --set-context <行数>  设置可疑行上下文显示行数\n"
         "  --set-max-chars <字符数>  设置 AI 消息长度警告阈值\n"
         "  --set-max-file-size <MB>  设置下载文件大小上限\n"
-        "  --set-confirm-reject  设置 REJECT 时是否确认继续安装\n"
+        "  --set-confirm-reject true|false  设置 REJECT 时是否确认继续安装\n"
         "  --no-ai            跳过 AI 审查，直接透传 yay\n"
         "\n"
         "查看 yay 帮助: aursec --no-ai --help  或  aursec -h\n"
@@ -612,13 +604,20 @@ int main(int argc, char* argv[]) {
 
     if (parsed.type == OpType::SetConfirmReject) {
         Config cfg = load_config();
-        std::vector<std::string> yn_opts = {"是", "否"};
-        std::cout << CYAN "AI 拒绝时是否询问是否继续安装？" RST << std::endl;
-        int sel = select_interactive(yn_opts);
-        if (sel < 0) { std::cerr << "已取消" << std::endl; curl_global_cleanup(); return 1; }
-        cfg.confirm_reject = (sel == 0);
+        if (parsed.context_opt.empty()) {
+            std::cerr << "用法: aursec --set-confirm-reject true|false" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        if (parsed.context_opt == "true") cfg.confirm_reject = true;
+        else if (parsed.context_opt == "false") cfg.confirm_reject = false;
+        else {
+            std::cerr << RED "无效值: " << parsed.context_opt << "，请使用 true 或 false" RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
         save_config(cfg);
-        std::cout << "拒绝确认已设置为: " << (cfg.confirm_reject ? "是" : "否") << std::endl;
+        std::cout << "拒绝确认已设置为: " << (cfg.confirm_reject ? "true" : "false") << std::endl;
         curl_global_cleanup();
         return 0;
     }
