@@ -46,26 +46,25 @@ static int select_interactive(const std::vector<std::string>& options) {
     termios raw = old;
     raw.c_lflag &= ~(ECHO | ICANON);
     raw.c_cc[VMIN] = 1;
-    raw.c_cc[VTIME] = 0;
+    raw.c_cc[VTIME] = 1;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 
     int sel = 0;
     int n = static_cast<int>(options.size());
-    bool done = false;
 
     auto draw = [&]() {
+        std::cout << "\r\033[J";
         for (int i = 0; i < n; i++) {
-            std::cout << "\r\033[K";
+            if (i > 0) std::cout << "\n";
             if (i == sel) std::cout << "  " SEL " " << options[i] << " " RST;
             else          std::cout << "  " << options[i];
-            if (i < n - 1) std::cout << "\n";
         }
-        std::cout << "\r\033[" << n << "A";
+        std::cout << "\r\033[" << (n - 1) << "A";
     };
 
     draw();
 
-    while (!done) {
+    while (true) {
         char c;
         if (read(STDIN_FILENO, &c, 1) != 1) break;
 
@@ -74,18 +73,18 @@ static int select_interactive(const std::vector<std::string>& options) {
             if (read(STDIN_FILENO, &seq[0], 1) != 1) break;
             if (read(STDIN_FILENO, &seq[1], 1) != 1) break;
             if (seq[0] == '[') {
-                if (seq[1] == 'A') { sel = (sel - 1 + n) % n; draw(); }
-                if (seq[1] == 'B') { sel = (sel + 1) % n; draw(); }
+                if (seq[1] == 'A' && sel > 0) { sel--; draw(); }
+                if (seq[1] == 'B' && sel < n - 1) { sel++; draw(); }
             }
         } else if (c == '\n' || c == '\r') {
-            done = true;
+            break;
         } else if (c == 'q' || c == 0x1b) {
             sel = -1;
-            done = true;
+            break;
         }
     }
 
-    std::cout << "\r\033[" << n << "B\033[J";
+    std::cout << "\r\033[J";
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return sel;
 }
