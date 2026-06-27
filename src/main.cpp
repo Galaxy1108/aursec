@@ -10,6 +10,12 @@
 #include <sstream>
 #include <csignal>
 
+#define RST   "\033[0m"
+#define GREEN "\033[32m"
+#define RED   "\033[31m"
+#define YELL  "\033[33m"
+#define CYAN  "\033[36m"
+
 static std::string read_hidden(const std::string& prompt) {
     std::cout << prompt << std::flush;
     termios old;
@@ -153,9 +159,10 @@ int main(int argc, char* argv[]) {
                     parsed.packages = std::move(outdated);
                 }
             } catch (const std::exception& e) {
-                std::cerr << "查询失败: " << e.what() << "，跳过 AI 审查" << std::endl;
+                std::cerr << RED "查询失败: " << e.what() << RST << std::endl;
+                std::cerr << "网络不可用，建议使用 --no-ai 跳过审查" << std::endl;
                 curl_global_cleanup();
-                return exec_yay(parsed.yay_argv);
+                return 1;
             }
         }
         if (parsed.packages.empty()) {
@@ -171,16 +178,24 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "正在下载 PKGBUILD..." << std::endl;
+    std::cout << CYAN "正在下载 PKGBUILD..." RST << std::endl;
     auto pkgs = fetch_pkgbuilds(parsed.packages);
 
     std::vector<std::string> approved;
     std::vector<std::string> rejected;
+    int net_errors = 0;
 
     for (const auto& p : pkgs) {
-        if (!p.success) {
+        if (p.status == DownloadStatus::NotFound) {
             std::cout << "  " << p.name << ": 不在 AUR 中，跳过审查" << std::endl;
             approved.push_back(p.name);
+            continue;
+        }
+
+        if (p.status == DownloadStatus::NetworkError) {
+            std::cerr << YELL "  " << p.name << ": 下载失败（网络不可用），已阻止" RST << std::endl;
+            rejected.push_back(p.name);
+            net_errors++;
             continue;
         }
 
@@ -188,26 +203,30 @@ int main(int argc, char* argv[]) {
         try {
             auto result = review_pkgbuilds(cfg, {{p.name, p.content}});
             if (result.passed) {
-                std::cout << "  " << p.name << ": 通过 - " << result.reason << std::endl;
+                std::cout << GREEN "  " << p.name << ": 通过 - " << result.reason << RST << std::endl;
                 approved.push_back(p.name);
             } else {
-                std::cout << "  " << p.name << ": 拒绝 - " << result.reason << std::endl;
+                std::cout << RED "  " << p.name << ": 拒绝 - " << result.reason << RST << std::endl;
                 rejected.push_back(p.name);
             }
         } catch (const std::exception& e) {
-            std::cerr << "  " << p.name << ": 审查失败 - " << e.what() << std::endl;
+            std::cerr << RED "  " << p.name << ": 审查失败 - " << e.what() << RST << std::endl;
             rejected.push_back(p.name);
         }
     }
 
     if (approved.empty()) {
-        std::cerr << "所有包均未通过 AI 审查，退出" << std::endl;
+        if (net_errors == static_cast<int>(pkgs.size())) {
+            std::cerr << RED "网络不可用，所有包下载失败。建议使用 --no-ai 跳过审查" RST << std::endl;
+        } else {
+            std::cerr << RED "所有包均未通过 AI 审查，退出" RST << std::endl;
+        }
         curl_global_cleanup();
         return 1;
     }
 
     if (!rejected.empty()) {
-        std::cout << rejected.size() << " 个包被拒绝，继续安装通过审查的包" << std::endl;
+        std::cout << YELL << rejected.size() << " 个包被跳过，继续安装通过审查的包" RST << std::endl;
     }
 
     std::vector<const char*> new_argv;

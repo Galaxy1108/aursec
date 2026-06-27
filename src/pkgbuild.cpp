@@ -11,7 +11,7 @@ static size_t write_cb(void* data, size_t size, size_t nmemb, std::string* buf) 
 static PkgbuildResult fetch_one(const std::string& name) {
     std::string url = "https://aur.archlinux.org/cgit/aur.git/plain/PKGBUILD?h=" + name;
     CURL* curl = curl_easy_init();
-    if (!curl) return {name, {}, false};
+    if (!curl) return {name, {}, DownloadStatus::NetworkError};
 
     std::string body;
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -20,13 +20,15 @@ static PkgbuildResult fetch_one(const std::string& name) {
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
-    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
 
     CURLcode res = curl_easy_perform(curl);
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     curl_easy_cleanup(curl);
 
-    if (res != CURLE_OK) return {name, {}, false};
-    return {name, body, true};
+    if (res != CURLE_OK) return {name, {}, DownloadStatus::NetworkError};
+    if (http_code == 404) return {name, {}, DownloadStatus::NotFound};
+    return {name, body, DownloadStatus::Ok};
 }
 
 std::vector<PkgbuildResult> fetch_pkgbuilds(const std::vector<std::string>& packages) {
