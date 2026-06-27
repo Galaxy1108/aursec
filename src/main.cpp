@@ -86,10 +86,7 @@ static int select_interactive(const std::vector<std::string>& options) {
         }
     }
 
-    if (n > 0) {
-        std::cout << "\033[" << n << "A";
-        for (int i = 0; i < n; i++) std::cout << "\r\033[K\n";
-    }
+    if (n > 0) std::cout << "\033[" << n << "B";
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return sel;
 }
