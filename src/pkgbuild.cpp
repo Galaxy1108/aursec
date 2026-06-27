@@ -349,6 +349,8 @@ static std::string bash_resolve(const std::string& raw, const std::string& pkgbu
         size_t eq = line.find('=');
         if (eq == std::string::npos || eq == 0) continue;
         std::string k = line.substr(0, eq);
+        while (!k.empty() && (k[0] == ' ' || k[0] == '\t')) k.erase(0, 1);
+        if (k.empty()) continue;
         bool valid = true;
         for (char c : k)
             if (!isalnum(c) && c != '_') { valid = false; break; }
