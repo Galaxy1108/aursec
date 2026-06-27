@@ -445,6 +445,17 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
 
         if (data.empty()) continue;
 
+        // Skip precompiled binary packages
+        std::string skip_exts[] = {".pkg.tar.", ".deb", ".rpm", ".AppImage"};
+        bool skip = false;
+        for (const auto& e : skip_exts)
+            if (url.find(e) != std::string::npos) { skip = true; break; }
+        if (skip) {
+            std::string fname = url.substr(url.find_last_of('/') + 1);
+            std::cout << "    文件: " << fname << " (" << fmt_size(data.size()) << ") " YELL "跳过（预编译包）" RST << std::endl;
+            continue;
+        }
+
         if (is_archive_ext(url)) {
 #ifdef HAVE_LIBARCHIVE
             std::cout << "    解包: " << url.substr(url.find_last_of('/') + 1) << std::endl;
