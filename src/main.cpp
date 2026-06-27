@@ -448,10 +448,22 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
                 if (nl != std::string::npos) summary.resize(nl);
                 std::cout << GREEN "  " << name << ": 通过 - " << summary << RST << std::endl;
             } else {
+                // First line = summary
                 std::string summary = result.reason;
                 size_t nl = summary.find('\n');
-                if (nl != std::string::npos) summary.resize(nl);
+                std::string body;
+                if (nl != std::string::npos) {
+                    body = summary.substr(nl + 1);
+                    summary.resize(nl);
+                }
                 std::cout << RED "  " << name << ": 拒绝 - " << summary << RST << std::endl;
+                // Show only :number mark lines, hide context │ lines
+                std::istringstream stream(body);
+                std::string line;
+                while (std::getline(stream, line)) {
+                    if (!line.empty() && line[0] == ':')
+                        std::cout << "    " << line << std::endl;
+                }
                 rejected++;
             }
         } catch (const std::exception& e) {
@@ -747,8 +759,18 @@ int main(int argc, char* argv[]) {
             } else {
                 std::string summary = result.reason;
                 size_t nl = summary.find('\n');
-                if (nl != std::string::npos) summary.resize(nl);
+                std::string body;
+                if (nl != std::string::npos) {
+                    body = summary.substr(nl + 1);
+                    summary.resize(nl);
+                }
                 std::cout << RED "  " << p.name << ": 拒绝 - " << summary << RST << std::endl;
+                std::istringstream stream(body);
+                std::string line;
+                while (std::getline(stream, line)) {
+                    if (!line.empty() && line[0] == ':')
+                        std::cout << "    " << line << std::endl;
+                }
                 if (cfg.confirm_reject) {
                     std::cout << "是否仍要安装 " << p.name << "？ [y/N] " << std::flush;
                     std::string input;
