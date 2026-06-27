@@ -15,6 +15,8 @@
 #define RED   "\033[31m"
 #define YELL  "\033[33m"
 #define CYAN  "\033[36m"
+#define BOLD  "\033[1m"
+#define SEL   "\033[7m"
 
 static std::string read_hidden(const std::string& prompt) {
     std::cout << prompt << std::flush;
@@ -38,20 +40,54 @@ static std::string read_line(const std::string& prompt, const std::string& defau
     return input;
 }
 
-static int select_option(const std::vector<std::string>& options, const std::string& prompt) {
-    for (size_t i = 0; i < options.size(); i++) {
-        std::cout << "  " << (i + 1) << ". " << options[i] << std::endl;
-    }
-    std::cout << prompt;
-    std::string input;
-    std::getline(std::cin, input);
-    try {
-        int choice = std::stoi(input);
-        if (choice >= 1 && choice <= static_cast<int>(options.size())) {
-            return choice - 1;
+static int select_interactive(const std::vector<std::string>& options) {
+    termios old;
+    tcgetattr(STDIN_FILENO, &old);
+    termios raw = old;
+    raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_cc[VMIN] = 1;
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+
+    int sel = 0;
+    int n = static_cast<int>(options.size());
+    bool done = false;
+
+    auto draw = [&]() {
+        for (int i = 0; i < n; i++) {
+            std::cout << "\r\033[K";
+            if (i == sel) std::cout << "  " SEL " " << options[i] << " " RST;
+            else          std::cout << "  " << options[i];
+            if (i < n - 1) std::cout << "\n";
         }
-    } catch (...) {}
-    return -1;
+        std::cout << "\r\033[" << n << "A";
+    };
+
+    draw();
+
+    while (!done) {
+        char c;
+        if (read(STDIN_FILENO, &c, 1) != 1) break;
+
+        if (c == '\033') {
+            char seq[2];
+            if (read(STDIN_FILENO, &seq[0], 1) != 1) break;
+            if (read(STDIN_FILENO, &seq[1], 1) != 1) break;
+            if (seq[0] == '[') {
+                if (seq[1] == 'A') { sel = (sel - 1 + n) % n; draw(); }
+                if (seq[1] == 'B') { sel = (sel + 1) % n; draw(); }
+            }
+        } else if (c == '\n' || c == '\r') {
+            done = true;
+        } else if (c == 'q' || c == 0x1b) {
+            sel = -1;
+            done = true;
+        }
+    }
+
+    std::cout << "\r\033[" << n << "B\033[J";
+    tcsetattr(STDIN_FILENO, TCSANOW, &old);
+    return sel;
 }
 
 static std::vector<std::string> parse_outdated_packages(const std::string& output) {
@@ -71,6 +107,26 @@ static std::vector<std::string> parse_outdated_packages(const std::string& outpu
     return pkgs;
 }
 
+static int run_model_picker(const Config& cfg) {
+    try {
+        std::vector<std::string> models = list_models(cfg);
+        std::cout << CYAN "可用模型：" RST << std::endl;
+        int sel = select_interactive(models);
+        if (sel < 0) {
+            std::cout << "已取消" << std::endl;
+            return 1;
+        }
+        Config updated = cfg;
+        updated.model = models[sel];
+        save_config(updated);
+        std::cout << GREEN "模型已切换为: " << updated.model << RST << std::endl;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << RED "获取模型列表失败: " << e.what() << RST << std::endl;
+        return 1;
+    }
+}
+
 static int run_init() {
     auto existing = load_config();
     std::cout << "=== aursec 初始化配置 ===" << std::endl;
@@ -88,10 +144,10 @@ static int run_init() {
     std::cout << "正在验证 API Key..." << std::endl;
     try {
         std::vector<std::string> models = list_models(tmp);
-        std::cout << "验证成功！可用模型：" << std::endl;
-        int sel = select_option(models, "请选择模型 (输入编号): ");
+        std::cout << CYAN "验证成功！可用模型：" RST << std::endl;
+        int sel = select_interactive(models);
         if (sel < 0) {
-            std::cerr << "无效选择" << std::endl;
+            std::cerr << "已取消" << std::endl;
             return 1;
         }
         tmp.model = models[sel];
@@ -105,13 +161,13 @@ static int run_init() {
         std::cout << "正在发送测试审查请求..." << std::endl;
         auto result = review_pkgbuilds(tmp, {{"test", "source=(https://example.com/test.tar.gz)\nsha256sums=('SKIP')\npackage() { true; }"}});
         if (result.passed) {
-            std::cout << "测试通过！" << std::endl;
+            std::cout << GREEN "测试通过！" RST << std::endl;
         } else {
             std::cout << "测试完成。" << std::endl;
         }
-        std::cout << "初始化完成！" << std::endl;
+        std::cout << GREEN "初始化完成！" RST << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "验证失败: " << e.what() << std::endl;
+        std::cerr << RED "验证失败: " << e.what() << RST << std::endl;
         std::cerr << "请检查 API Key 和网络连接后重试" << std::endl;
         return 1;
     }
@@ -125,6 +181,18 @@ int main(int argc, char* argv[]) {
 
     if (parsed.type == OpType::Init) {
         int ret = run_init();
+        curl_global_cleanup();
+        return ret;
+    }
+
+    if (parsed.type == OpType::SetModel) {
+        Config cfg = load_config();
+        if (!cfg.loaded) {
+            std::cerr << RED "错误: 未配置 API Key。请先运行 aursec --init" RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        int ret = run_model_picker(cfg);
         curl_global_cleanup();
         return ret;
     }
@@ -147,7 +215,7 @@ int main(int argc, char* argv[]) {
 
     if (parsed.packages.empty()) {
         if (parsed.is_upgrade) {
-            std::cout << "正在查询可更新的 AUR 包..." << std::endl;
+            std::cout << CYAN "正在查询可更新的 AUR 包..." RST << std::endl;
             std::vector<const char*> qargv = {"yay", "-Qua", nullptr};
             try {
                 std::string output = exec_capture(qargv);
@@ -173,7 +241,7 @@ int main(int argc, char* argv[]) {
 
     Config cfg = load_config();
     if (!cfg.loaded) {
-        std::cerr << "错误: 未配置 API Key。请运行 aursec --init 配置，或使用 --no-ai 跳过审查" << std::endl;
+        std::cerr << RED "错误: 未配置 API Key。请运行 aursec --init 配置，或使用 --no-ai 跳过审查" RST << std::endl;
         curl_global_cleanup();
         return 1;
     }

@@ -7,6 +7,7 @@ enum class OpType {
     Install,
     Passthru,
     Version,
+    SetModel,
 };
 
 struct ParseResult {

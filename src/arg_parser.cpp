@@ -80,6 +80,10 @@ ParseResult parse_args(int argc, char* argv[]) {
             result.type = OpType::Init;
             return result;
         }
+        if (a == "--set-model") {
+            result.type = OpType::SetModel;
+            return result;
+        }
     }
 
     std::vector<const char*> filtered = {argv[0]};
