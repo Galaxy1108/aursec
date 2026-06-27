@@ -39,8 +39,9 @@ static curl_off_t head_file_size(const std::string& url) {
     try { return std::stoll(result); } catch (...) { return -1; }
 }
 
-static std::string popen_fetch(const std::string& url, int timeout_sec = 15, bool fail_on_http_error = true) {
-    std::string cmd = "curl -L --progress-bar --connect-timeout " + std::to_string(timeout_sec / 2)
+static std::string popen_fetch(const std::string& url, int timeout_sec = 15, bool fail_on_http_error = true, bool show_progress = false) {
+    std::string progress = show_progress ? " --progress-bar" : " -s";
+    std::string cmd = "curl -L" + progress + " --connect-timeout " + std::to_string(timeout_sec / 2)
         + " --max-time " + std::to_string(timeout_sec)
         + (fail_on_http_error ? " -f" : "") + " -o- " + url;
     FILE* pipe = popen(cmd.c_str(), "r");
@@ -153,7 +154,7 @@ static bool is_archive_ext(const std::string& path) {
 }
 
 static std::string popen_fetch_with_size(const std::string& url, double& size_mb) {
-    std::string body = popen_fetch(url, 30);
+    std::string body = popen_fetch(url, 30, true, true);
     size_mb = (double)body.size() / (1024.0 * 1024.0);
     if (body.size() > 50 * 1024 * 1024) {
         body.clear();
