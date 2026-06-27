@@ -51,10 +51,10 @@ static std::string curl_fetch(const std::string& url) {
 }
 
 static void popen_fetch_progress(const std::string& url, std::string& data, double& size_mb) {
-    // HEAD: get size
+    // HEAD: get size from Content-Length
     curl_off_t total = 0;
     {
-        std::string hcmd = "curl -sI -L --connect-timeout 5 --max-time 10 -o /dev/null -w '%{size_download}' " + url + " 2>/dev/null";
+        std::string hcmd = "curl -sI -L --connect-timeout 5 --max-time 10 -o /dev/null -w '%{content_length_download}' " + url + " 2>/dev/null";
         FILE* hpipe = popen(hcmd.c_str(), "r");
         char hbuf[64];
         if (hpipe) {
@@ -62,6 +62,24 @@ static void popen_fetch_progress(const std::string& url, std::string& data, doub
                 try { total = std::stoll(hbuf); } catch (...) { total = 0; }
             }
             pclose(hpipe);
+        }
+        // If no Content-Length, try range request to probe
+        if (total <= 0) {
+            std::string rcmd = "curl -sL -r 0-0 --connect-timeout 5 --max-time 10 -o /dev/null -w '%{content_length_download}' " + url + " 2>/dev/null";
+            FILE* rpipe = popen(rcmd.c_str(), "r");
+            char rbuf[64];
+            if (rpipe) {
+                if (fgets(rbuf, sizeof(rbuf), rpipe)) {
+                    try {
+                        curl_off_t range_size = std::stoll(rbuf);
+                        if (range_size > 0) total = range_size;
+                    } catch (...) {}
+                }
+                pclose(rpipe);
+            }
+        }
+        if (total > 50 * 1024 * 1024) {
+            throw std::runtime_error("file too large (>50MB)");
         }
     }
 
