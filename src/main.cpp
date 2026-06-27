@@ -92,7 +92,7 @@ static int select_interactive(const std::vector<std::string>& options) {
         }
     }
 
-    std::cout << "\033[u\033[" << (sel + 1) << "B\r\033[J";
+    std::cout << "\033[u\033[J";
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
     return sel;
 }
