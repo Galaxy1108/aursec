@@ -16,6 +16,7 @@ enum class OpType {
     SetStrictness,
     SetContext,
     SetConfirmReject,
+    SetMaxChars,
 };
 
 struct ParseResult {

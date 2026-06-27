@@ -246,6 +246,7 @@ Config load_config() {
             if (j.contains("review_level")) cfg.review_level = j["review_level"].get<std::string>();
             if (j.contains("strictness")) cfg.strictness = j["strictness"].get<std::string>();
             if (j.contains("context_lines")) cfg.context_lines = j["context_lines"].get<int>();
+            if (j.contains("max_chars")) cfg.max_chars = j["max_chars"].get<int>();
             if (j.contains("confirm_reject")) cfg.confirm_reject = j["confirm_reject"].get<bool>();
             if (j.contains("key_cipher")) cfg.key_cipher = j["key_cipher"].get<std::string>();
             if (j.contains("key_salt")) cfg.key_salt = j["key_salt"].get<std::string>();
@@ -308,6 +309,7 @@ void save_config(const Config& cfg) {
     j["review_level"] = cfg.review_level;
     j["strictness"] = cfg.strictness;
     j["context_lines"] = cfg.context_lines;
+    j["max_chars"] = cfg.max_chars;
     j["confirm_reject"] = cfg.confirm_reject;
 
     switch (cfg.enc_method) {

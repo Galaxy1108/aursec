@@ -11,6 +11,7 @@ struct Config {
     std::string review_level = "basic";
     std::string strictness = "normal";
     int context_lines = 2;
+    int max_chars = 50000;
     bool confirm_reject = true;
     EncMethod enc_method = EncMethod::Plain;
     std::string key_cipher;

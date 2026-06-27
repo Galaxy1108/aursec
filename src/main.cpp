@@ -142,7 +142,7 @@ static int run_level_picker(Config& cfg) {
     if (detect_libarchive())
         level_opts.push_back("deep    - 深度审查：同时下载并分析 source=() 中的源码文件（需 AI 变量展开 + 网络下载，耗时较长）");
 
-    std::cout << CYAN "请选择审查级别：" RST << std::endl;
+    std::cout << CYAN "请选择审查细致级别：" RST << std::endl;
     int sel = select_interactive(level_opts);
     if (sel < 0) return 1;
 
@@ -235,6 +235,20 @@ static void print_context(
             std::cout << file_lines[i - 1] << RST << std::endl;
         }
     }
+}
+
+static bool confirm_large_payload(const std::vector<std::pair<std::string, std::string>>& sources, int max_chars) {
+    size_t total = 0;
+    for (const auto& [_, content] : sources)
+        total += content.size();
+    if (total > static_cast<size_t>(max_chars)) {
+        std::cout << YELL "等等！继续操作将会向 AI 发送长达 " << total << " 个字符的消息，"
+                  << "你确定要继续吗？ [y/N] " RST << std::flush;
+        std::string input;
+        std::getline(std::cin, input);
+        return input == "y" || input == "Y";
+    }
+    return true;
 }
 
 static int run_strictness_picker(Config& cfg) {
@@ -430,6 +444,10 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
             }
         }
 
+        if (!confirm_large_payload(review_sources, cfg.max_chars)) {
+            std::cout << YELL "  已跳过" RST << std::endl;
+            continue;
+        }
         std::cout << "正在 AI 审查 " << name << "..." << std::endl;
         try {
             auto result = review_pkgbuilds(cfg, review_sources);
@@ -493,9 +511,10 @@ static int print_help() {
         "  --prompt-file <路径>  设置自定义提示词\n"
         "  --prompt-default    恢复默认提示词\n"
         "  --review <文件|URL>  审查本地文件或 URL 的 PKGBUILD\n"
-        "  --set-review-level   交互式设置审查级别\n"
+        "  --set-review-level   交互式设置审查细致级别\n"
         "  --set-strictness     交互式设置审查严格度\n"
         "  --set-context <行数>  设置可疑行上下文显示行数\n"
+        "  --set-max-chars <字符数>  设置 AI 消息长度警告阈值\n"
         "  --no-ai            跳过 AI 审查，直接透传 yay\n"
         "\n"
         "查看 yay 帮助: aursec --no-ai --help  或  aursec -h\n"
@@ -545,7 +564,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         save_config(cfg);
-        std::cout << "审查级别已设置为: " << cfg.review_level << std::endl;
+        std::cout << "审查细致级别已设置为: " << cfg.review_level << std::endl;
         curl_global_cleanup();
         return 0;
     }
@@ -598,6 +617,27 @@ int main(int argc, char* argv[]) {
         cfg.confirm_reject = (sel == 0);
         save_config(cfg);
         std::cout << "拒绝确认已设置为: " << (cfg.confirm_reject ? "是" : "否") << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
+    if (parsed.type == OpType::SetMaxChars) {
+        Config cfg = load_config();
+        if (parsed.context_opt.empty()) {
+            std::cerr << "用法: aursec --set-max-chars <字符数>" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        try {
+            cfg.max_chars = std::stoi(parsed.context_opt);
+            if (cfg.max_chars < 1000) throw std::exception();
+        } catch (...) {
+            std::cerr << RED "无效字符数: " << parsed.context_opt << "（最小 1000）" RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        save_config(cfg);
+        std::cout << "AI 消息长度警告阈值已设置为: " << cfg.max_chars << " 字符" << std::endl;
         curl_global_cleanup();
         return 0;
     }
@@ -745,6 +785,11 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        if (!confirm_large_payload(review_sources, cfg.max_chars)) {
+            std::cout << YELL "  " << p.name << ": 已跳过（消息过大）" RST << std::endl;
+            rejected.push_back(p.name);
+            continue;
+        }
         try {
             auto result = review_pkgbuilds(cfg, review_sources);
 

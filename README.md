@@ -20,7 +20,7 @@ sudo pacman -U aursec-*.pkg.tar.zst
 
 依赖: `yay`, `curl`, `nlohmann-json`, `openssl`
 
-可选: `libsecret`（系统密钥环支持）, `libarchive`（deep 审查级别）
+可选: `libsecret`（系统密钥环支持）, `libarchive`（deep 审查细致级别）
 
 ## 配置
 
@@ -28,7 +28,7 @@ sudo pacman -U aursec-*.pkg.tar.zst
 aursec --init
 ```
 
-交互式配置：API Key → 验证 → 选模型 → Base URL → 加密方式 → 审查级别 → 严格度 → 拒绝确认 → 保存。
+交互式配置：API Key → 验证 → 选模型 → Base URL → 加密方式 → 审查细致级别 → 严格度 → 拒绝确认 → 保存。
 
 ### 加密方式
 
@@ -38,7 +38,7 @@ aursec --init
 | AES-256-CBC | 始终可用 | Key 加密后存入 config |
 | 不加密 | 始终可选择 | Key 明文存储 |
 
-### 审查级别
+### 审查细致级别
 
 | 级别 | 说明 |
 |------|------|
@@ -64,7 +64,7 @@ AI 判 REJECT 时询问是否仍要安装，`--init` 时可关闭此确认。
 aursec                    # 等效 aursec -Syu
 aursec --set-strictness   # 交互式选择严格度
 aursec --set-context 5    # 设置上下文行数
-aursec --set-review-level # 交互式选择审查级别
+aursec --set-review-level # 交互式选择审查细致级别
 aursec --review ./PKGBUILD # 审查本地 PKGBUILD
 aursec --no-ai -S pkg     # 跳过审查直接安装
 ```
