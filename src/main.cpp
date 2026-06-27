@@ -448,21 +448,28 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
                 if (nl != std::string::npos) summary.resize(nl);
                 std::cout << GREEN "  " << name << ": 通过 - " << summary << RST << std::endl;
             } else {
-                // First line = summary
-                std::string summary = result.reason;
-                size_t nl = summary.find('\n');
-                std::string body;
-                if (nl != std::string::npos) {
-                    body = summary.substr(nl + 1);
-                    summary.resize(nl);
+                std::string rest = result.reason;
+                size_t nl = rest.find('\n');
+                std::string first = (nl != std::string::npos) ? rest.substr(0, nl) : rest;
+                std::string body = (nl != std::string::npos) ? rest.substr(nl + 1) : "";
+                bool no_summary = first.empty() || first[0] == ':';
+
+                if (no_summary) {
+                    std::cout << RED "  " << name << ": 拒绝 - 存在安全风险" RST << std::endl;
+                    body = rest;
+                } else {
+                    std::cout << RED "  " << name << ": 拒绝 - " << first << RST << std::endl;
                 }
-                std::cout << RED "  " << name << ": 拒绝 - " << summary << RST << std::endl;
-                // Show only :number mark lines, hide context │ lines
+
                 std::istringstream stream(body);
                 std::string line;
                 while (std::getline(stream, line)) {
-                    if (!line.empty() && line[0] == ':')
-                        std::cout << "    " << line << std::endl;
+                    if (line.empty() || line[0] != ':') continue;
+                    bool is_mal = line.find('!') != std::string::npos;
+                    if (is_mal)
+                        std::cout << RED "    " << line << RST << std::endl;
+                    else
+                        std::cout << YELL "    " << line << RST << std::endl;
                 }
                 rejected++;
             }
@@ -757,19 +764,28 @@ int main(int argc, char* argv[]) {
                 std::cout << GREEN "  " << p.name << ": 通过 - " << summary << RST << std::endl;
                 approved.push_back(p.name);
             } else {
-                std::string summary = result.reason;
-                size_t nl = summary.find('\n');
-                std::string body;
-                if (nl != std::string::npos) {
-                    body = summary.substr(nl + 1);
-                    summary.resize(nl);
+                std::string rest = result.reason;
+                size_t nl = rest.find('\n');
+                std::string first = (nl != std::string::npos) ? rest.substr(0, nl) : rest;
+                std::string body = (nl != std::string::npos) ? rest.substr(nl + 1) : "";
+                bool no_summary = first.empty() || first[0] == ':';
+
+                if (no_summary) {
+                    std::cout << RED "  " << p.name << ": 拒绝 - 存在安全风险" RST << std::endl;
+                    body = rest;
+                } else {
+                    std::cout << RED "  " << p.name << ": 拒绝 - " << first << RST << std::endl;
                 }
-                std::cout << RED "  " << p.name << ": 拒绝 - " << summary << RST << std::endl;
+
                 std::istringstream stream(body);
                 std::string line;
                 while (std::getline(stream, line)) {
-                    if (!line.empty() && line[0] == ':')
-                        std::cout << "    " << line << std::endl;
+                    if (line.empty() || line[0] != ':') continue;
+                    bool is_mal = line.find('!') != std::string::npos;
+                    if (is_mal)
+                        std::cout << RED "    " << line << RST << std::endl;
+                    else
+                        std::cout << YELL "    " << line << RST << std::endl;
                 }
                 if (cfg.confirm_reject) {
                     std::cout << "是否仍要安装 " << p.name << "？ [y/N] " << std::flush;
