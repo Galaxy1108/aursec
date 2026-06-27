@@ -377,9 +377,9 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
         std::string data;
 
         try {
-            std::cout << "    下载: " << url << std::flush;
+            std::cout << "    下载: " << url << std::endl;
             data = curl_fetch_with_size(url, size_mb);
-            std::cout << " (" << fmt_size(size_mb * 1024 * 1024) << ")" << std::endl;
+            std::cout << "    大小: " << fmt_size(size_mb * 1024 * 1024) << std::endl;
         } catch (const std::exception& e) {
             std::cerr << RED "    下载失败: " << url << RST << std::endl;
             continue;

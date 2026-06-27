@@ -164,14 +164,17 @@ struct Mark {
 
 static std::vector<Mark> parse_marks(const std::string& reason) {
     std::vector<Mark> marks;
-    std::regex re(R"(([\w.-]+)?:(\d+)([!?]))");
+    // Match: filename? :start! or :start? or :start-end! or :start-end?
+    // Also handle multiple: !! ?? after the number
+    std::regex re(R"(([\w.-]+)?:(\d+)(?:-(\d+))?([!?]+))");
     std::sregex_iterator it(reason.begin(), reason.end(), re), end;
     for (; it != end; ++it) {
-        Mark m;
-        m.file = (*it)[1].matched ? (*it)[1].str() : "";
-        m.line = std::stoi((*it)[2].str());
-        m.is_malicious = (*it)[3].str() == "!";
-        marks.push_back(m);
+        int start = std::stoi((*it)[2].str());
+        int end_line = (*it)[3].matched ? std::stoi((*it)[3].str()) : start;
+        bool is_mal = (*it)[4].str().find('!') != std::string::npos;
+        for (int l = start; l <= end_line; l++) {
+            marks.push_back({(*it)[1].matched ? (*it)[1].str() : "", l, is_mal});
+        }
     }
     return marks;
 }
@@ -440,9 +443,15 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
             if (cfg.strictness == "none") {
                 std::cout << YELL "  " << name << ": " << result.reason << RST << std::endl;
             } else if (result.passed) {
-                std::cout << GREEN "  " << name << ": 通过 - " << result.reason << RST << std::endl;
+                std::string summary = result.reason;
+                size_t nl = summary.find_first_of(".\n");
+                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                std::cout << GREEN "  " << name << ": 通过 - " << summary << RST << std::endl;
             } else {
-                std::cout << RED "  " << name << ": 拒绝 - " << result.reason << RST << std::endl;
+                std::string summary = result.reason;
+                size_t nl = summary.find_first_of(".\n");
+                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                std::cout << RED "  " << name << ": 拒绝 - " << summary << RST << std::endl;
                 rejected++;
             }
         } catch (const std::exception& e) {
@@ -727,14 +736,19 @@ int main(int argc, char* argv[]) {
             }
 
             if (cfg.strictness == "none") {
-                // never block, always show risks
                 std::cout << YELL "  " << p.name << ": " << result.reason << RST << std::endl;
                 approved.push_back(p.name);
             } else if (result.passed) {
-                std::cout << GREEN "  " << p.name << ": 通过 - " << result.reason << RST << std::endl;
+                std::string summary = result.reason;
+                size_t nl = summary.find_first_of(".\n");
+                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                std::cout << GREEN "  " << p.name << ": 通过 - " << summary << RST << std::endl;
                 approved.push_back(p.name);
             } else {
-                std::cout << RED "  " << p.name << ": 拒绝 - " << result.reason << RST << std::endl;
+                std::string summary = result.reason;
+                size_t nl = summary.find_first_of(".\n");
+                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                std::cout << RED "  " << p.name << ": 拒绝 - " << summary << RST << std::endl;
                 if (cfg.confirm_reject) {
                     std::cout << "是否仍要安装 " << p.name << "？ [y/N] " << std::flush;
                     std::string input;
