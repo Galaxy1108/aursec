@@ -353,16 +353,24 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
 }
 
 static std::string bash_resolve(const std::string& raw, const std::string& pkgbuild) {
-    auto vars = extract_all_vars(pkgbuild);
     std::string script;
-    for (const auto& [k, v] : vars) {
-        if (!v.empty()) {
-            std::string val = v;
-            size_t p = 0;
-            while ((p = val.find('\'', p)) != std::string::npos) { val.replace(p, 1, "'\\''"); p += 4; }
-            script += k + "='" + val + "'; ";
-        }
+    std::istringstream stream(pkgbuild);
+    std::string line;
+    while (std::getline(stream, line)) {
+        size_t eq = line.find('=');
+        if (eq == std::string::npos || eq == 0) continue;
+        std::string k = line.substr(0, eq);
+        bool valid = true;
+        for (char c : k)
+            if (!isalnum(c) && c != '_') { valid = false; break; }
+        if (!valid || k == "source" || k.find("source_") == 0 || k.find("sha256sums") == 0) continue;
+
+        std::string v = line.substr(eq + 1);
+        // Skip assignments with command substitution (security)
+        if (v.find("$(") != std::string::npos || v.find('`') != std::string::npos) continue;
+        script += line + "\n";
     }
+
     std::string r = raw;
     size_t p = 0;
     while ((p = r.find('\\', p)) != std::string::npos) { r.replace(p, 1, "\\\\"); p += 2; }
@@ -378,16 +386,17 @@ static std::string bash_resolve(const std::string& raw, const std::string& pkgbu
     }
     chmod(tmp.c_str(), 0755);
 
-    FILE* pipe = popen(("bash " + tmp + " 2>/dev/null").c_str(), "r");
+    FILE* pipe = popen(("timeout 3 bash " + tmp + " 2>/dev/null").c_str(), "r");
     if (!pipe) { unlink(tmp.c_str()); return raw; }
 
     std::string result;
     char buf[4096];
     while (fgets(buf, sizeof(buf), pipe)) result += buf;
-    pclose(pipe);
+    int status = pclose(pipe);
     unlink(tmp.c_str());
 
-    if (!result.empty() && result.back() == '\n') result.pop_back();
+    if (result.empty() && status != 0) return raw;
+    while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) result.pop_back();
     return result.empty() ? raw : result;
 }
 
