@@ -444,13 +444,13 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
                 std::cout << YELL "  " << name << ": " << result.reason << RST << std::endl;
             } else if (result.passed) {
                 std::string summary = result.reason;
-                size_t nl = summary.find_first_of(".\n");
-                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                size_t nl = summary.find('\n');
+                if (nl != std::string::npos) summary.resize(nl);
                 std::cout << GREEN "  " << name << ": 通过 - " << summary << RST << std::endl;
             } else {
                 std::string summary = result.reason;
-                size_t nl = summary.find_first_of(".\n");
-                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                size_t nl = summary.find('\n');
+                if (nl != std::string::npos) summary.resize(nl);
                 std::cout << RED "  " << name << ": 拒绝 - " << summary << RST << std::endl;
                 rejected++;
             }
@@ -740,14 +740,14 @@ int main(int argc, char* argv[]) {
                 approved.push_back(p.name);
             } else if (result.passed) {
                 std::string summary = result.reason;
-                size_t nl = summary.find_first_of(".\n");
-                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                size_t nl = summary.find('\n');
+                if (nl != std::string::npos) summary.resize(nl);
                 std::cout << GREEN "  " << p.name << ": 通过 - " << summary << RST << std::endl;
                 approved.push_back(p.name);
             } else {
                 std::string summary = result.reason;
-                size_t nl = summary.find_first_of(".\n");
-                if (nl != std::string::npos) summary = summary.substr(0, nl + 1);
+                size_t nl = summary.find('\n');
+                if (nl != std::string::npos) summary.resize(nl);
                 std::cout << RED "  " << p.name << ": 拒绝 - " << summary << RST << std::endl;
                 if (cfg.confirm_reject) {
                     std::cout << "是否仍要安装 " << p.name << "？ [y/N] " << std::flush;
