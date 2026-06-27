@@ -11,6 +11,7 @@ enum class OpType {
     ReviewFile,
     PromptFile,
     PromptDefault,
+    Help,
 };
 
 struct ParseResult {

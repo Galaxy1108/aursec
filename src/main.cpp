@@ -255,6 +255,29 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
     return rejected > 0 ? 1 : 0;
 }
 
+static int print_help() {
+    std::cout << "aursec " AURSEC_VERSION " - yay AI 审查包装器\n"
+        "用法: aursec [--no-ai] [yay 参数...]\n"
+        "\n"
+        "操作:\n"
+        "  （无参数）        等效 aursec -Syu\n"
+        "  --aursec-help     显示此帮助\n"
+        "  --aursec-version  显示版本\n"
+        "  --init            交互式配置 API Key / 模型 / Base URL\n"
+        "  --set-model       交互式切换模型\n"
+        "  --prompt-file <路径>  设置自定义提示词文件\n"
+        "  --prompt-default      恢复默认提示词\n"
+        "  --review <文件|URL>   审查本地文件或网络 URL 的 PKGBUILD\n"
+        "  --no-ai           跳过 AI 审查，直接透传 yay\n"
+        "\n"
+        "示例:\n"
+        "  aursec                          升级所有包\n"
+        "  aursec --no-ai -S pkg           跳过审查直接安装\n"
+        "  aursec --review ./PKGBUILD      审查本地 PKGBUILD\n"
+        "  aursec --prompt-file ~/my.txt   使用自定义提示词\n";
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     curl_global_init(CURL_GLOBAL_ALL);
 
@@ -274,6 +297,12 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         int ret = run_model_picker(cfg);
+        curl_global_cleanup();
+        return ret;
+    }
+
+    if (parsed.type == OpType::Help) {
+        int ret = print_help();
         curl_global_cleanup();
         return ret;
     }
