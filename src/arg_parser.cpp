@@ -63,6 +63,13 @@ static std::vector<std::string> extract_package_names(const std::vector<const ch
 ParseResult parse_args(int argc, char* argv[]) {
     ParseResult result;
 
+    if (argc < 2) {
+        result.type = OpType::Install;
+        result.is_upgrade = true;
+        result.yay_argv = {argv[0], "-Syu", nullptr};
+        return result;
+    }
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--init") == 0) {
             result.type = OpType::Init;

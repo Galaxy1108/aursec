@@ -115,11 +115,6 @@ static int run_init() {
 int main(int argc, char* argv[]) {
     curl_global_init(CURL_GLOBAL_ALL);
 
-    if (argc < 2) {
-        // yay without args shows TUI, pass through
-        return exec_yay({argv[0], nullptr});
-    }
-
     auto parsed = parse_args(argc, argv);
 
     if (parsed.type == OpType::Init) {
