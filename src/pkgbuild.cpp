@@ -3,6 +3,9 @@
 #include <iostream>
 #include <stdexcept>
 
+#define RST   "\033[0m"
+#define RED   "\033[31m"
+
 #ifdef HAVE_LIBARCHIVE
 #include <archive.h>
 #include <archive_entry.h>
@@ -58,6 +61,19 @@ static bool is_text_ext(const std::string& path) {
     return false;
 }
 
+static std::string resolve_install_name(const std::string& raw, const std::string& pkgname) {
+    std::string result = raw;
+    size_t pos = 0;
+    while ((pos = result.find("${pkgname}", pos)) != std::string::npos) {
+        result.replace(pos, 10, pkgname);
+    }
+    pos = 0;
+    while ((pos = result.find("$pkgname", pos)) != std::string::npos) {
+        result.replace(pos, 8, pkgname);
+    }
+    return result;
+}
+
 static std::string extract_package_name(const std::string& pkgbuild) {
     size_t pos = pkgbuild.find("pkgname=");
     if (pos == std::string::npos) return {};
@@ -111,7 +127,7 @@ std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::stri
             std::string content = curl_fetch(url);
             files.emplace_back(pkgname + ".install", content);
         } catch (const std::exception& e) {
-            std::cout << "    下载失败: " << pkgname << ".install（" << e.what() << "）" << std::endl;
+            std::cerr << RED "    下载失败: " << pkgname << ".install" RST << std::endl;
         }
     }
 
@@ -127,13 +143,14 @@ std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::stri
             if (!fname.empty() && (fname[0] == '\'' || fname[0] == '"'))
                 fname = fname.substr(1, fname.size() - 2);
             if (!fname.empty() && fname != pkgname + ".install") {
+                fname = resolve_install_name(fname, pkgname);
                 std::string furl = "https://aur.archlinux.org/cgit/aur.git/plain/" + fname + "?h=" + name;
                 std::cout << "  正在下载: " << fname << std::endl;
                 try {
                     std::string content = curl_fetch(furl);
                     files.emplace_back(fname, content);
                 } catch (const std::exception& e) {
-                    std::cout << "    下载失败: " << fname << "（" << e.what() << "）" << std::endl;
+                    std::cerr << RED "    下载失败: " << fname << RST << std::endl;
                 }
             }
         }
