@@ -124,6 +124,13 @@ static void test_parse_args_no_args_equals_Syu() {
     std::cout << "  no args = -Syu test: OK" << std::endl;
 }
 
+static void test_parse_args_aursec_version() {
+    const char* av[] = {"aursec", "--aursec-version", nullptr};
+    auto r = parse_args(2, const_cast<char**>(av));
+    assert(r.type == OpType::Version);
+    std::cout << "  --aursec-version test: OK" << std::endl;
+}
+
 static void test_parse_args_no_ai_passthru() {
     const char* av[] = {"aursec", "--no-ai", "-R", "firefox", nullptr};
     auto r = parse_args(4, const_cast<char**>(av));
@@ -155,6 +162,7 @@ int main() {
     test_parse_args_yay_argv_passthru();
     test_parse_args_no_ai_passthru();
     test_parse_args_no_args_equals_Syu();
+    test_parse_args_aursec_version();
 
     std::cout << "\n所有测试通过!" << std::endl;
     return 0;

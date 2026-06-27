@@ -16,6 +16,7 @@ add_executable(aursec
     src/executor.cpp
 )
 
+target_compile_definitions(aursec PRIVATE AURSEC_VERSION="${PROJECT_VERSION}")
 target_link_libraries(aursec PRIVATE CURL::libcurl nlohmann_json::nlohmann_json)
 
 option(BUILD_TESTS "Build tests" ON)

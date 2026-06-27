@@ -71,7 +71,12 @@ ParseResult parse_args(int argc, char* argv[]) {
     }
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--init") == 0) {
+        std::string a = argv[i];
+        if (a == "--aursec-version") {
+            result.type = OpType::Version;
+            return result;
+        }
+        if (a == "--init") {
             result.type = OpType::Init;
             return result;
         }

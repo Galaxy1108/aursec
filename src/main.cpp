@@ -123,6 +123,12 @@ int main(int argc, char* argv[]) {
         return ret;
     }
 
+    if (parsed.type == OpType::Version) {
+        std::cout << "aursec " << AURSEC_VERSION << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
     if (parsed.type != OpType::Install) {
         curl_global_cleanup();
         return exec_yay(parsed.yay_argv);
@@ -168,37 +174,57 @@ int main(int argc, char* argv[]) {
     std::cout << "正在下载 PKGBUILD..." << std::endl;
     auto pkgs = fetch_pkgbuilds(parsed.packages);
 
-    std::vector<std::pair<std::string, std::string>> to_review;
+    std::vector<std::string> approved;
+    std::vector<std::string> rejected;
+
     for (const auto& p : pkgs) {
-        if (p.success) {
-            to_review.emplace_back(p.name, p.content);
-        } else {
+        if (!p.success) {
             std::cout << "  " << p.name << ": 不在 AUR 中，跳过审查" << std::endl;
+            approved.push_back(p.name);
+            continue;
+        }
+
+        std::cout << "正在 AI 审查 " << p.name << "..." << std::endl;
+        try {
+            auto result = review_pkgbuilds(cfg, {{p.name, p.content}});
+            if (result.passed) {
+                std::cout << "  " << p.name << ": 通过 - " << result.reason << std::endl;
+                approved.push_back(p.name);
+            } else {
+                std::cout << "  " << p.name << ": 拒绝 - " << result.reason << std::endl;
+                rejected.push_back(p.name);
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "  " << p.name << ": 审查失败 - " << e.what() << std::endl;
+            rejected.push_back(p.name);
         }
     }
 
-    if (to_review.empty()) {
-        std::cout << "所有包均不在 AUR 中，跳过 AI 审查" << std::endl;
-        curl_global_cleanup();
-        return exec_yay(parsed.yay_argv);
-    }
-
-    std::cout << "正在 AI 审查 " << to_review.size() << " 个 PKGBUILD..." << std::endl;
-    try {
-        auto result = review_pkgbuilds(cfg, to_review);
-        if (result.passed) {
-            std::cout << "审查通过: " << result.reason << std::endl;
-            curl_global_cleanup();
-            return exec_yay(parsed.yay_argv);
-        } else {
-            std::cerr << "审查拒绝: " << result.reason << std::endl;
-            curl_global_cleanup();
-            return 1;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "AI 审查失败: " << e.what() << std::endl;
-        std::cerr << "使用 --no-ai 跳过审查直接安装" << std::endl;
+    if (approved.empty()) {
+        std::cerr << "所有包均未通过 AI 审查，退出" << std::endl;
         curl_global_cleanup();
         return 1;
     }
+
+    if (!rejected.empty()) {
+        std::cout << rejected.size() << " 个包被拒绝，继续安装通过审查的包" << std::endl;
+    }
+
+    std::vector<const char*> new_argv;
+    new_argv.push_back(parsed.yay_argv[0]);
+    for (size_t i = 1; parsed.yay_argv[i] != nullptr; i++) {
+        std::string arg = parsed.yay_argv[i];
+        if (arg == "-Su" || arg == "-Syu" || arg == "--sysupgrade") {
+            new_argv.push_back("-S");
+        } else if (!arg.empty() && arg[0] == '-') {
+            new_argv.push_back(parsed.yay_argv[i]);
+        }
+    }
+    for (const auto& pkg : approved) {
+        new_argv.push_back(pkg.c_str());
+    }
+    new_argv.push_back(nullptr);
+
+    curl_global_cleanup();
+    return exec_yay(new_argv);
 }
