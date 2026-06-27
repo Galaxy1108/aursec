@@ -287,9 +287,38 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
             continue;
         }
 
+        std::vector<std::pair<std::string, std::string>> review_sources = {{name, content}};
+
+        bool is_pkgbuild = name == "PKGBUILD" || content.find("pkgname=") != std::string::npos;
+
+        if (is_pkgbuild) {
+            std::string pkgname = name;
+            size_t pos = content.find("pkgname=");
+            if (pos != std::string::npos) {
+                pos += 8;
+                std::string extracted;
+                while (pos < content.size() && content[pos] != '\n') {
+                    if (content[pos] != '\'' && content[pos] != '"' && content[pos] != ' ')
+                        extracted += content[pos];
+                    pos++;
+                }
+                if (!extracted.empty()) pkgname = extracted;
+            }
+
+            if (cfg.review_level == "normal" || cfg.review_level == "deep") {
+                auto aux = fetch_aux_files(pkgname, content);
+                for (auto& f : aux) review_sources.push_back(std::move(f));
+            }
+
+            if (cfg.review_level == "deep") {
+                auto src = fetch_source_files(pkgname);
+                for (auto& f : src) review_sources.push_back(std::move(f));
+            }
+        }
+
         std::cout << "正在 AI 审查 " << name << "..." << std::endl;
         try {
-            auto result = review_pkgbuilds(cfg, {{name, content}});
+            auto result = review_pkgbuilds(cfg, review_sources);
             if (result.passed) {
                 std::cout << GREEN "  " << name << ": 通过 - " << result.reason << RST << std::endl;
             } else {
