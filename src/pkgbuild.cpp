@@ -367,6 +367,7 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
             size_t sep = entry.find("::");
             std::string url = (sep != std::string::npos) ? entry.substr(sep + 2) : entry;
             url = resolve_vars(url, vars);
+            if (url.find("${") != std::string::npos) continue;
             if (url.find("http://") == 0 || url.find("https://") == 0)
                 raw_urls.push_back(url);
         }
