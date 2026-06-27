@@ -10,7 +10,8 @@ url="https://github.com/Galaxy1108/aursec"
 license=('MIT')
 depends=('yay' 'curl' 'nlohmann-json' 'openssl')
 makedepends=('cmake' 'glib2')
-optdepends=('libsecret: 系统密钥环支持')
+optdepends=('libsecret: 系统密钥环支持'
+            'libarchive: deep 审查级别（解压 AUR 源码快照）')
 source=("$pkgname::git+file://${startdir}")
 sha256sums=('SKIP')
 

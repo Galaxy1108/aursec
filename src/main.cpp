@@ -129,6 +129,28 @@ static int run_model_picker(const Config& cfg) {
     }
 }
 
+static int run_level_picker(Config& cfg) {
+    std::vector<std::string> level_opts;
+    level_opts.push_back("basic   - 仅审查 PKGBUILD");
+    level_opts.push_back("normal  - PKGBUILD + AUR 辅助文件");
+    if (detect_libarchive())
+        level_opts.push_back("deep    - PKGBUILD + 辅助 + source=() 脚本");
+
+    std::cout << CYAN "请选择审查级别：" RST << std::endl;
+    int sel = select_interactive(level_opts);
+    if (sel < 0) return 1;
+
+    if (detect_libarchive()) {
+        if (sel == 0) cfg.review_level = "basic";
+        else if (sel == 1) cfg.review_level = "normal";
+        else cfg.review_level = "deep";
+    } else {
+        if (sel == 0) cfg.review_level = "basic";
+        else cfg.review_level = "normal";
+    }
+    return 0;
+}
+
 static int run_init() {
     auto existing = load_config();
     std::cout << "=== aursec 初始化配置 ===" << std::endl;
@@ -176,6 +198,11 @@ static int run_init() {
         } else {
             if (enc_sel == 0) tmp.enc_method = EncMethod::Cipher;
             else tmp.enc_method = EncMethod::Plain;
+        }
+
+        if (run_level_picker(tmp) != 0) {
+            std::cerr << "已取消" << std::endl;
+            return 1;
         }
 
         save_config(tmp);
@@ -288,8 +315,10 @@ static int print_help() {
         "  --set-model         交互式切换模型\n"
         "  --prompt-file <路径>  设置自定义提示词\n"
         "  --prompt-default    恢复默认提示词\n"
-        "  --review <文件|URL>   审查本地文件或 URL 的 PKGBUILD\n"
-        "  --no-ai             跳过 AI 审查，直接透传 yay\n"
+        "  --review <文件|URL>  审查本地文件或 URL 的 PKGBUILD\n"
+        "  --review-level <级别>  临时覆盖审查级别 (basic/normal/deep)\n"
+        "  --set-review-level   交互式设置审查级别\n"
+        "  --no-ai            跳过 AI 审查，直接透传 yay\n"
         "\n"
         "查看 yay 帮助: aursec --no-ai --help  或  aursec -h\n"
         "\n"
@@ -297,6 +326,7 @@ static int print_help() {
         "  aursec                        升级所有包\n"
         "  aursec --no-ai -S pkg         跳过审查直接安装\n"
         "  aursec --review ./PKGBUILD    审查本地 PKGBUILD\n"
+        "  aursec --review-level deep -Syu  临时用 deep 级别\n"
         "  aursec --prompt-file ~/my.txt 使用自定义提示词\n";
     return 0;
 }
@@ -322,6 +352,24 @@ int main(int argc, char* argv[]) {
         int ret = run_model_picker(cfg);
         curl_global_cleanup();
         return ret;
+    }
+
+    if (parsed.type == OpType::SetReviewLevel) {
+        Config cfg = load_config();
+        if (!cfg.loaded) {
+            std::cerr << RED "错误: 未配置 API Key。请先运行 aursec --init" RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        if (run_level_picker(cfg) != 0) {
+            std::cerr << "已取消" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        save_config(cfg);
+        std::cout << "审查级别已设置为: " << cfg.review_level << std::endl;
+        curl_global_cleanup();
+        return 0;
     }
 
     if (parsed.type == OpType::Help) {
@@ -372,6 +420,8 @@ int main(int argc, char* argv[]) {
             curl_global_cleanup();
             return 1;
         }
+        if (!parsed.review_level_opt.empty())
+            cfg.review_level = parsed.review_level_opt;
         int ret = run_review(cfg, parsed.review_files);
         curl_global_cleanup();
         return ret;
@@ -420,6 +470,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    std::string level = parsed.review_level_opt.empty() ? cfg.review_level : parsed.review_level_opt;
+    cfg.review_level = level; // ensure load_prompt uses the correct level
+
     std::cout << CYAN "正在下载 PKGBUILD..." RST << std::endl;
     auto pkgs = fetch_pkgbuilds(parsed.packages);
 
@@ -442,8 +495,26 @@ int main(int argc, char* argv[]) {
         }
 
         std::cout << "正在 AI 审查 " << p.name << "..." << std::endl;
+
+        // Collect extra files based on level
+        std::vector<std::pair<std::string, std::string>> review_sources = {{p.name, p.content}};
+
+        if (level == "normal" || level == "deep") {
+            auto aux = fetch_aux_files(p.name, p.content);
+            for (auto& f : aux) {
+                review_sources.push_back(std::move(f));
+            }
+        }
+
+        if (level == "deep") {
+            auto src = fetch_source_files(p.name);
+            for (auto& f : src) {
+                review_sources.push_back(std::move(f));
+            }
+        }
+
         try {
-            auto result = review_pkgbuilds(cfg, {{p.name, p.content}});
+            auto result = review_pkgbuilds(cfg, review_sources);
             if (result.passed) {
                 std::cout << GREEN "  " << p.name << ": 通过 - " << result.reason << RST << std::endl;
                 approved.push_back(p.name);

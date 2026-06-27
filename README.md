@@ -20,7 +20,7 @@ sudo pacman -U aursec-*.pkg.tar.zst
 
 依赖: `yay`, `curl`, `nlohmann-json`, `openssl`
 
-可选: `libsecret`（系统密钥环支持）
+可选: `libsecret`（系统密钥环支持）, `libarchive`（deep 审查级别）
 
 ## 配置
 
@@ -41,6 +41,19 @@ aursec --init
 | 不加密 | 始终可选择 | Key 明文存储 |
 
 环境变量优先级更高：`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `AI_MODEL`
+
+## 审查级别
+
+```bash
+aursec --set-review-level              # 交互式选择并持久保存
+aursec --review-level normal -Syu      # 临时覆盖本次操作
+```
+
+| 级别 | 说明 |
+|------|------|
+| basic | 仅审查 PKGBUILD |
+| normal | PKGBUILD + AUR 辅助文件 (.install 等) |
+| deep | PKGBUILD + 辅助 + source=() 构建脚本（需 libarchive） |
 
 ## 使用
 

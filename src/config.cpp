@@ -4,6 +4,7 @@
 #include <cstring>
 #include <pwd.h>
 #include <unistd.h>
+#include <dlfcn.h>
 #include <sys/stat.h>
 #include <nlohmann/json.hpp>
 #include <openssl/evp.h>
@@ -242,6 +243,7 @@ Config load_config() {
             if (j.contains("base_url")) cfg.base_url = j["base_url"].get<std::string>();
             if (j.contains("model")) cfg.model = j["model"].get<std::string>();
             if (j.contains("prompt_file")) cfg.prompt_file = j["prompt_file"].get<std::string>();
+            if (j.contains("review_level")) cfg.review_level = j["review_level"].get<std::string>();
             if (j.contains("key_cipher")) cfg.key_cipher = j["key_cipher"].get<std::string>();
             if (j.contains("key_salt")) cfg.key_salt = j["key_salt"].get<std::string>();
 
@@ -269,6 +271,14 @@ Config load_config() {
     return cfg;
 }
 
+bool detect_libarchive() {
+    void* h = dlopen("libarchive.so", RTLD_LAZY | RTLD_NOLOAD);
+    if (h) { dlclose(h); return true; }
+    h = dlopen("libarchive.so.13", RTLD_LAZY | RTLD_NOLOAD);
+    if (h) { dlclose(h); return true; }
+    return false;
+}
+
 void save_config(const Config& cfg) {
     std::string dir = config_dir();
     mkdir(dir.c_str(), 0755);
@@ -292,6 +302,7 @@ void save_config(const Config& cfg) {
     j["base_url"] = to_save.base_url;
     j["model"] = to_save.model;
     if (!to_save.prompt_file.empty()) j["prompt_file"] = to_save.prompt_file;
+    j["review_level"] = cfg.review_level;
 
     switch (cfg.enc_method) {
         case EncMethod::Cipher:

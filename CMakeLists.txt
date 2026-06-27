@@ -28,6 +28,13 @@ if(PkgConfig_FOUND)
         target_compile_definitions(aursec PRIVATE HAVE_LIBSECRET=1)
         message(STATUS "libsecret found - keyring support enabled")
     endif()
+
+    pkg_check_modules(LIBARCHIVE libarchive IMPORTED_TARGET)
+    if(TARGET PkgConfig::LIBARCHIVE)
+        target_link_libraries(aursec PRIVATE PkgConfig::LIBARCHIVE)
+        target_compile_definitions(aursec PRIVATE HAVE_LIBARCHIVE=1)
+        message(STATUS "libarchive found - deep review support enabled")
+    endif()
 endif()
 
 option(BUILD_TESTS "Build tests" ON)

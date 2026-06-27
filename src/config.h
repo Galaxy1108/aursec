@@ -8,6 +8,7 @@ struct Config {
     std::string base_url = "https://api.deepseek.com";
     std::string model = "deepseek-chat";
     std::string prompt_file;
+    std::string review_level = "basic";
     EncMethod enc_method = EncMethod::Plain;
     std::string key_cipher;
     std::string key_salt;
@@ -17,3 +18,4 @@ struct Config {
 Config load_config();
 void save_config(const Config& cfg);
 bool detect_keyring();
+bool detect_libarchive();

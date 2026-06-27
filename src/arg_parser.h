@@ -12,6 +12,7 @@ enum class OpType {
     PromptFile,
     PromptDefault,
     Help,
+    SetReviewLevel,
 };
 
 struct ParseResult {
@@ -21,6 +22,7 @@ struct ParseResult {
     std::vector<std::string> packages;
     std::vector<std::string> review_files;
     std::string prompt_file_opt;
+    std::string review_level_opt;
     std::vector<const char*> yay_argv; // null-terminated
 };
 

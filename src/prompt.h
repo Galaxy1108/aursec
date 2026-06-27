@@ -28,7 +28,21 @@ REJECT: 具体风险描述
 注意：只对真实的、有明确证据的恶意行为判 REJECT。不确定时请判 PASS。)";
 }
 
-inline std::string load_prompt(const Config& cfg) {
+inline std::string prompt_by_level(const std::string& level) {
+    std::string base = default_prompt();
+    if (level == "normal") {
+        base += "\n\n你将同时收到 .install 等辅助安装脚本，请注意安装阶段的 post_install 操作是否存在风险。";
+    } else if (level == "deep") {
+        base += "\n\n你将同时收到 .install 等辅助安装脚本以及从 source=() 下载的构建脚本。"
+                "请注意构建过程和安装过程中是否包含恶意代码（如 curl/wget 未知 URL、base64 解码执行、"
+                "修改系统关键文件等）。";
+    }
+    return base;
+}
+
+inline std::string load_prompt(const Config& cfg, const std::string& level_override = "") {
+    std::string level = level_override.empty() ? cfg.review_level : level_override;
+
     if (!cfg.prompt_file.empty()) {
         std::ifstream f(cfg.prompt_file);
         if (f.is_open()) {
@@ -37,5 +51,5 @@ inline std::string load_prompt(const Config& cfg) {
             if (!ss.str().empty()) return ss.str();
         }
     }
-    return default_prompt();
+    return prompt_by_level(level);
 }

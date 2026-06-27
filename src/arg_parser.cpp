@@ -98,6 +98,14 @@ ParseResult parse_args(int argc, char* argv[]) {
                 result.prompt_file_opt = argv[i + 1];
             return result;
         }
+        if (a == "--set-review-level") {
+            result.type = OpType::SetReviewLevel;
+            return result;
+        }
+        if (a == "--review-level") {
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                result.review_level_opt = argv[i + 1];
+        }
         if (a == "--review") {
             result.type = OpType::ReviewFile;
             for (int j = i + 1; j < argc; j++) {
@@ -117,6 +125,10 @@ ParseResult parse_args(int argc, char* argv[]) {
         std::string arg = argv[i];
         if (arg == "--no-ai") {
             result.no_ai = true;
+            continue;
+        }
+        if (arg == "--review-level") {
+            i++; // skip flag and its value
             continue;
         }
         if (!arg.empty() && arg[0] == '-') {
