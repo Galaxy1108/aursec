@@ -515,6 +515,7 @@ static int print_help() {
         "  --set-strictness     交互式设置审查严格度\n"
         "  --set-context <行数>  设置可疑行上下文显示行数\n"
         "  --set-max-chars <字符数>  设置 AI 消息长度警告阈值\n"
+        "  --set-max-file-size <MB>  设置下载文件大小上限\n"
         "  --set-confirm-reject  设置 REJECT 时是否确认继续安装\n"
         "  --no-ai            跳过 AI 审查，直接透传 yay\n"
         "\n"
@@ -639,6 +640,28 @@ int main(int argc, char* argv[]) {
         }
         save_config(cfg);
         std::cout << "AI 消息长度警告阈值已设置为: " << cfg.max_chars << " 字符" << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
+    if (parsed.type == OpType::SetMaxFileSize) {
+        Config cfg = load_config();
+        if (parsed.context_opt.empty()) {
+            std::cerr << "用法: aursec --set-max-file-size <MB>" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        try {
+            int mb = std::stoi(parsed.context_opt);
+            if (mb < 1) throw std::exception();
+            cfg.max_file_size_mb = mb;
+        } catch (...) {
+            std::cerr << RED "无效大小: " << parsed.context_opt << " MB（最小 1）" RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        save_config(cfg);
+        std::cout << "下载文件大小上限已设置为: " << cfg.max_file_size_mb << " MB" << std::endl;
         curl_global_cleanup();
         return 0;
     }

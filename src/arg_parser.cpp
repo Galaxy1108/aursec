@@ -122,6 +122,12 @@ ParseResult parse_args(int argc, char* argv[]) {
                 result.context_opt = argv[i + 1];
             return result;
         }
+        if (a == "--set-max-file-size") {
+            result.type = OpType::SetMaxFileSize;
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                result.context_opt = argv[i + 1];
+            return result;
+        }
         if (a == "--review") {
             result.type = OpType::ReviewFile;
             for (int j = i + 1; j < argc; j++) {

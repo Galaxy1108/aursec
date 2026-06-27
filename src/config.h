@@ -12,6 +12,7 @@ struct Config {
     std::string strictness = "normal";
     int context_lines = 2;
     int max_chars = 50000;
+    int max_file_size_mb = 50;
     bool confirm_reject = true;
     EncMethod enc_method = EncMethod::Plain;
     std::string key_cipher;

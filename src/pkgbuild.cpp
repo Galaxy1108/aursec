@@ -50,11 +50,14 @@ static std::string curl_fetch(const std::string& url) {
     return popen_fetch(url);
 }
 
-static void popen_fetch_progress(const std::string& url, std::string& data, double& size_mb) {
-    // HEAD: get size from Content-Length
+static void popen_fetch_progress(const std::string& url, std::string& data, double& size_mb, int max_mb) {
+    curl_off_t max_bytes = static_cast<curl_off_t>(max_mb) * 1024 * 1024;
     curl_off_t total = 0;
+
+    // HEAD: parse Content-Length from headers
     {
-        std::string hcmd = "curl -sI -L --connect-timeout 5 --max-time 10 -o /dev/null -w '%{content_length_download}' " + url + " 2>/dev/null";
+        std::string hcmd = "curl -sI -L --connect-timeout 5 --max-time 10 -H 'Accept-Encoding: identity' " + url
+            + " 2>/dev/null | grep -i '^content-length:' | awk '{print $2}' | tr -d '\r'";
         FILE* hpipe = popen(hcmd.c_str(), "r");
         char hbuf[64];
         if (hpipe) {
@@ -63,28 +66,14 @@ static void popen_fetch_progress(const std::string& url, std::string& data, doub
             }
             pclose(hpipe);
         }
-        // If no Content-Length, try range request to probe
-        if (total <= 0) {
-            std::string rcmd = "curl -sL -r 0-0 --connect-timeout 5 --max-time 10 -o /dev/null -w '%{content_length_download}' " + url + " 2>/dev/null";
-            FILE* rpipe = popen(rcmd.c_str(), "r");
-            char rbuf[64];
-            if (rpipe) {
-                if (fgets(rbuf, sizeof(rbuf), rpipe)) {
-                    try {
-                        curl_off_t range_size = std::stoll(rbuf);
-                        if (range_size > 0) total = range_size;
-                    } catch (...) {}
-                }
-                pclose(rpipe);
-            }
-        }
-        if (total > 50 * 1024 * 1024) {
-            throw std::runtime_error("file too large (>50MB)");
+        if (total > max_bytes) {
+            throw std::runtime_error("file too large (> " + std::to_string(max_mb) + "MB)");
         }
     }
 
     // Download with progress
-    std::string cmd = "curl -s -L -f --connect-timeout 15 --max-time 120 -o- " + url;
+    std::string cmd = "curl -s -L -f --connect-timeout 15 --max-time 120 --max-filesize "
+        + std::to_string(max_bytes) + " -o- " + url;
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) throw std::runtime_error("popen failed");
 
@@ -95,12 +84,6 @@ static void popen_fetch_progress(const std::string& url, std::string& data, doub
         if (n == 0) break;
         data.append(buf, n);
         received += n;
-
-        if (received > 50ULL * 1024 * 1024) {
-            pclose(pipe);
-            data.clear();
-            throw std::runtime_error("file too large (>50MB)");
-        }
 
         if (total > 0) {
             int pct = static_cast<int>(received * 100 / total);
@@ -417,7 +400,7 @@ std::vector<std::pair<std::string, std::string>> fetch_downloaded_urls(const Con
 
         std::cout << "    下载: " << url << std::endl;
         try {
-            popen_fetch_progress(url, data, size_mb);
+            popen_fetch_progress(url, data, size_mb, cfg.max_file_size_mb);
             std::cerr << "\r\033[K     \033[32m完成\033[0m: " << fmt_size(size_mb * 1024 * 1024) << std::endl;
         } catch (const std::exception& e) {
             std::string msg = e.what();
