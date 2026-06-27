@@ -1,6 +1,7 @@
 #include "pkgbuild.h"
 #include <curl/curl.h>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <regex>
 #include <algorithm>
@@ -69,17 +70,41 @@ static bool is_text_ext(const std::string& path) {
     return false;
 }
 
-static std::string resolve_install_name(const std::string& raw, const std::string& pkgname) {
-    std::string result = raw;
-    size_t pos = 0;
-    while ((pos = result.find("${pkgname}", pos)) != std::string::npos) {
-        result.replace(pos, 10, pkgname);
+static std::map<std::string, std::string> extract_all_vars(const std::string& pkgbuild) {
+    std::map<std::string, std::string> vars;
+    std::istringstream stream(pkgbuild);
+    std::string line;
+    while (std::getline(stream, line)) {
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        std::string k = line.substr(0, eq);
+        if (k.empty() || k.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_") != std::string::npos)
+            continue;
+        std::string v = line.substr(eq + 1);
+        if (!v.empty() && (v[0] == '\'' || v[0] == '"')) v = v.substr(1);
+        if (!v.empty() && (v.back() == '\'' || v.back() == '"')) v.pop_back();
+        if (!v.empty() && (v.back() == '\'' || v.back() == '"')) v.pop_back();
+        vars[k] = v;
     }
-    pos = 0;
-    while ((pos = result.find("$pkgname", pos)) != std::string::npos) {
-        result.replace(pos, 8, pkgname);
+    return vars;
+}
+
+static std::string resolve_vars(const std::string& raw, const std::map<std::string, std::string>& vars) {
+    std::string r = raw;
+    for (const auto& [k, v] : vars) {
+        if (v.empty()) continue;
+        size_t p = 0;
+        std::string braced = "${" + k + "}";
+        while ((p = r.find(braced, p)) != std::string::npos) { r.replace(p, braced.size(), v); }
+        p = 0;
+        std::string unbraced = "$" + k;
+        while ((p = r.find(unbraced, p)) != std::string::npos) { r.replace(p, unbraced.size(), v); }
     }
-    return result;
+    return r;
+}
+
+static std::string resolve_install_name(const std::string& raw, const std::map<std::string, std::string>& vars) {
+    return resolve_vars(raw, vars);
 }
 
 static std::string extract_var(const std::string& pkgbuild, const std::string& var) {
@@ -94,16 +119,6 @@ static std::string extract_var(const std::string& pkgbuild, const std::string& v
         pos++;
     }
     return val;
-}
-
-static std::string resolve_vars(const std::string& raw, const std::string& pkgname, const std::string& pkgver) {
-    std::string r = raw;
-    size_t p = 0;
-    while ((p = r.find("${pkgname}", p)) != std::string::npos) { r.replace(p, 10, pkgname); }
-    p = 0; while ((p = r.find("$pkgname", p)) != std::string::npos) { r.replace(p, 8, pkgname); }
-    p = 0; while ((p = r.find("${pkgver}", p)) != std::string::npos) { r.replace(p, 9, pkgver); }
-    p = 0; while ((p = r.find("$pkgver", p)) != std::string::npos) { r.replace(p, 7, pkgver); }
-    return r;
 }
 
 static std::string fmt_size(double bytes) {
@@ -160,10 +175,10 @@ static void extract_from_memory(const std::string& data, std::vector<std::pair<s
                 if (c == 0 && c != '\n' && c != '\r' && c != '\t') { binary = true; break; }
             }
             if (binary) {
-                std::cout << "    文件: " << pathname << " (" << size_str << ") " << YELL "✗ 跳过（二进制）" RST << std::endl;
+                std::cout << "    文件: " << pathname << " (" << size_str << ") " YELL "跳过（二进制）" RST << std::endl;
                 continue;
             }
-            std::cout << "    文件: " << pathname << " (" << size_str << ") " GREEN "✓" RST << std::endl;
+            std::cout << "    文件: " << pathname << " (" << size_str << ") " GREEN "通过" RST << std::endl;
             files.emplace_back(label + "/" + pathname, content);
             count++;
             extracted++;
@@ -172,7 +187,7 @@ static void extract_from_memory(const std::string& data, std::vector<std::pair<s
             if (size > 102400) reason = "过大";
             else if (!is_text_ext(pathname)) reason = "非文本";
             else reason = "已达上限";
-            std::cout << "    文件: " << pathname << " (" << size_str << ") " << YELL "✗ 跳过（" << reason << "）" RST << std::endl;
+            std::cout << "    文件: " << pathname << " (" << size_str << ") " YELL "跳过（" << reason << "）" RST << std::endl;
         }
     }
     archive_read_free(a);
@@ -224,6 +239,7 @@ std::vector<PkgbuildResult> fetch_pkgbuilds(const std::vector<std::string>& pack
 std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::string& name, const std::string& pkgbuild) {
     std::vector<std::pair<std::string, std::string>> files;
     std::string pkgname = extract_package_name(pkgbuild);
+    auto all_vars = extract_all_vars(pkgbuild);
     if (pkgname.empty()) return files;
 
     // Try .install file
@@ -250,7 +266,7 @@ std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::stri
             if (!fname.empty() && (fname[0] == '\'' || fname[0] == '"'))
                 fname = fname.substr(1, fname.size() - 2);
             if (!fname.empty() && fname != pkgname + ".install") {
-                fname = resolve_install_name(fname, pkgname);
+                fname = resolve_install_name(fname, all_vars);
                 std::string furl = "https://aur.archlinux.org/cgit/aur.git/plain/" + fname + "?h=" + name;
                 std::cout << "  正在下载: " << fname << std::endl;
                 try {
@@ -326,10 +342,9 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
 #endif
 }
 
-std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::string& pkgbuild, const std::string& pkgname) {
+std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::string& pkgbuild) {
     std::vector<std::pair<std::string, std::string>> results;
-    std::string pkgver = extract_var(pkgbuild, "pkgver");
-    if (pkgver.empty()) { pkgver = "1.0"; }
+    auto vars = extract_all_vars(pkgbuild);
 
     // Parse source=() blocks
     std::vector<std::string> raw_urls;
@@ -344,7 +359,7 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
             // Handle "filename::URL" format
             size_t sep = entry.find("::");
             std::string url = (sep != std::string::npos) ? entry.substr(sep + 2) : entry;
-            url = resolve_vars(url, pkgname, pkgver);
+            url = resolve_vars(url, vars);
             if (url.find("http://") == 0 || url.find("https://") == 0)
                 raw_urls.push_back(url);
         }
@@ -390,7 +405,7 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
             std::string size_str = fmt_size(data.size());
 
             if (!is_text_ext(fname)) {
-                std::cout << "    文件: " << fname << " (" << size_str << ") " YELL "✗ 跳过（非文本）" RST << std::endl;
+                std::cout << "    文件: " << fname << " (" << size_str << ") " YELL "跳过（非文本）" RST << std::endl;
                 continue;
             }
 
@@ -399,9 +414,9 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
                 if (c == 0) { binary = true; break; }
             }
             if (binary || data.size() > 102400) {
-                std::cout << "    文件: " << fname << " (" << size_str << ") " YELL "✗ 跳过（" << (binary ? "二进制" : "过大") << "）" RST << std::endl;
+                std::cout << "    文件: " << fname << " (" << size_str << ") " YELL "跳过（" << (binary ? "二进制" : "过大") << "）" RST << std::endl;
             } else {
-                std::cout << "    文件: " << fname << " (" << size_str << ") " GREEN "✓" RST << std::endl;
+                std::cout << "    文件: " << fname << " (" << size_str << ") " GREEN "通过" RST << std::endl;
                 results.emplace_back("source/" + fname, data);
                 file_count++;
             }
