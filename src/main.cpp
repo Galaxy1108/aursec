@@ -5,6 +5,7 @@
 #include "executor.h"
 #include <curl/curl.h>
 #include <iostream>
+#include <fstream>
 #include <termios.h>
 #include <unistd.h>
 #include <sstream>
@@ -175,6 +176,85 @@ static int run_init() {
     return 0;
 }
 
+static std::string fetch_url(const std::string& url) {
+    CURL* curl = curl_easy_init();
+    if (!curl) throw std::runtime_error("failed to init curl");
+
+    std::string body;
+    auto write_cb = [](void* data, size_t size, size_t nmemb, std::string* buf) {
+        size_t total = size * nmemb;
+        buf->append(static_cast<char*>(data), total);
+        return total;
+    };
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
+    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK) throw std::runtime_error(std::string("下载失败: ") + curl_easy_strerror(res));
+    return body;
+}
+
+static std::string basename(const std::string& path) {
+    size_t slash = path.find_last_of('/');
+    if (slash == std::string::npos) return path;
+    return path.substr(slash + 1);
+}
+
+static int run_review(const Config& cfg, const std::vector<std::string>& files) {
+    int rejected = 0;
+    for (const auto& arg : files) {
+        std::string name = basename(arg);
+        std::string content;
+
+        try {
+            if (arg.find("://") != std::string::npos) {
+                content = fetch_url(arg);
+            } else {
+                std::ifstream f(arg);
+                if (!f.is_open()) {
+                    std::cerr << RED "  " << arg << ": 无法打开文件" RST << std::endl;
+                    rejected++;
+                    continue;
+                }
+                std::ostringstream ss;
+                ss << f.rdbuf();
+                content = ss.str();
+                if (content.empty()) {
+                    std::cerr << YELL "  " << name << ": 空文件" RST << std::endl;
+                    continue;
+                }
+            }
+        } catch (const std::exception& e) {
+            std::cerr << RED "  " << name << ": " << e.what() << RST << std::endl;
+            rejected++;
+            continue;
+        }
+
+        std::cout << "正在 AI 审查 " << name << "..." << std::endl;
+        try {
+            auto result = review_pkgbuilds(cfg, {{name, content}});
+            if (result.passed) {
+                std::cout << GREEN "  " << name << ": 通过 - " << result.reason << RST << std::endl;
+            } else {
+                std::cout << RED "  " << name << ": 拒绝 - " << result.reason << RST << std::endl;
+                rejected++;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << RED "  " << name << ": 审查失败 - " << e.what() << RST << std::endl;
+            rejected++;
+        }
+    }
+    return rejected > 0 ? 1 : 0;
+}
+
 int main(int argc, char* argv[]) {
     curl_global_init(CURL_GLOBAL_ALL);
 
@@ -202,6 +282,18 @@ int main(int argc, char* argv[]) {
         std::cout << "aursec " << AURSEC_VERSION << std::endl;
         curl_global_cleanup();
         return 0;
+    }
+
+    if (parsed.type == OpType::ReviewFile) {
+        Config cfg = load_config();
+        if (!cfg.loaded) {
+            std::cerr << RED "错误: 未配置 API Key。请先运行 aursec --init" RST << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        int ret = run_review(cfg, parsed.review_files);
+        curl_global_cleanup();
+        return ret;
     }
 
     if (parsed.type != OpType::Install) {

@@ -8,6 +8,7 @@ enum class OpType {
     Passthru,
     Version,
     SetModel,
+    ReviewFile,
 };
 
 struct ParseResult {
@@ -15,6 +16,7 @@ struct ParseResult {
     bool no_ai = false;
     bool is_upgrade = false;
     std::vector<std::string> packages;
+    std::vector<std::string> review_files;
     std::vector<const char*> yay_argv; // null-terminated
 };
 

@@ -84,6 +84,15 @@ ParseResult parse_args(int argc, char* argv[]) {
             result.type = OpType::SetModel;
             return result;
         }
+        if (a == "--review") {
+            result.type = OpType::ReviewFile;
+            for (int j = i + 1; j < argc; j++) {
+                std::string f = argv[j];
+                if (!f.empty() && f[0] == '-') break;
+                result.review_files.push_back(f);
+            }
+            return result;
+        }
     }
 
     std::vector<const char*> filtered = {argv[0]};
