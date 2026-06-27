@@ -1,5 +1,6 @@
 #include "pkgbuild.h"
 #include <curl/curl.h>
+#include <iostream>
 #include <stdexcept>
 
 #ifdef HAVE_LIBARCHIVE
@@ -103,11 +104,14 @@ std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::stri
     if (pkgname.empty()) return files;
 
     // Try .install file
-    std::string url = "https://aur.archlinux.org/cgit/aur.git/plain/" + pkgname + ".install?h=" + name;
-    try {
-        std::string content = curl_fetch(url);
-        files.emplace_back(pkgname + ".install", content);
-    } catch (...) {}
+    {
+        std::string url = "https://aur.archlinux.org/cgit/aur.git/plain/" + pkgname + ".install?h=" + name;
+        std::cout << "  正在下载: " << pkgname << ".install" << std::endl;
+        try {
+            std::string content = curl_fetch(url);
+            files.emplace_back(pkgname + ".install", content);
+        } catch (...) {}
+    }
 
     // Parse install= line from PKGBUILD
     size_t pos = pkgbuild.find("install=");
@@ -122,6 +126,7 @@ std::vector<std::pair<std::string, std::string>> fetch_aux_files(const std::stri
                 fname = fname.substr(1, fname.size() - 2);
             if (!fname.empty() && fname != pkgname + ".install") {
                 std::string furl = "https://aur.archlinux.org/cgit/aur.git/plain/" + fname + "?h=" + name;
+                std::cout << "  正在下载: " << fname << std::endl;
                 try {
                     std::string content = curl_fetch(furl);
                     files.emplace_back(fname, content);
@@ -140,12 +145,15 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
     (void)name;
     return files;
 #else
-    // Download snapshot tarball
-    std::string url = "https://aur.archlinux.org/cgit/aur.git/snapshot/" + name + ".tar.gz";
     std::string tarball;
-    try {
-        tarball = curl_fetch(url);
-    } catch (...) { return files; }
+    // Download snapshot tarball
+    {
+        std::string url = "https://aur.archlinux.org/cgit/aur.git/snapshot/" + name + ".tar.gz";
+        std::cout << "  正在下载源码快照: " << name << ".tar.gz" << std::endl;
+        try {
+            tarball = curl_fetch(url);
+        } catch (...) { return files; }
+    }
 
     if (tarball.empty()) return files;
 

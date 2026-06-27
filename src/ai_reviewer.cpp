@@ -1,6 +1,7 @@
 #include "ai_reviewer.h"
 #include "prompt.h"
 #include <curl/curl.h>
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <algorithm>
@@ -15,6 +16,7 @@ static size_t write_cb(void* data, size_t size, size_t nmemb, std::string* buf) 
 static std::string api_post(const Config& cfg, const std::string& endpoint,
                             const std::string& body) {
     std::string url = cfg.base_url + endpoint;
+    std::cout << "    正在调用 AI API: " << endpoint << std::endl;
     CURL* curl = curl_easy_init();
     if (!curl) throw std::runtime_error("failed to init curl");
 

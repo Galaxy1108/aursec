@@ -225,6 +225,7 @@ static int run_init() {
 }
 
 static std::string fetch_url(const std::string& url) {
+    std::cout << "  正在下载: " << url << std::endl;
     CURL* curl = curl_easy_init();
     if (!curl) throw std::runtime_error("failed to init curl");
 
