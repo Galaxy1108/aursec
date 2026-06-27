@@ -9,7 +9,12 @@ struct ReviewResult {
     std::string reason;
 };
 
+struct ExpandResult {
+    std::vector<std::pair<std::string, std::string>> expanded_files;
+    std::vector<std::string> urls;
+};
+
 std::vector<std::string> list_models(const Config& cfg);
 ReviewResult review_pkgbuilds(const Config& cfg, const std::vector<std::pair<std::string, std::string>>& pkgs);
 ReviewResult parse_review_response(const std::string& raw);
-std::vector<std::string> ai_resolve_urls(const Config& cfg, const std::string& pkgbuild, const std::vector<std::string>& entries);
+ExpandResult ai_expand_and_find_urls(const Config& cfg, const std::vector<std::pair<std::string, std::string>>& files);

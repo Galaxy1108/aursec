@@ -6,6 +6,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <regex>
 
 static size_t write_cb(void* data, size_t size, size_t nmemb, std::string* buf) {
     size_t total = size * nmemb;
@@ -153,44 +154,64 @@ ReviewResult review_pkgbuilds(const Config& cfg,
     return parse_review_response(content);
 }
 
-std::vector<std::string> ai_resolve_urls(const Config& cfg,
-    const std::string& pkgbuild,
-    const std::vector<std::string>& entries)
+ExpandResult ai_expand_and_find_urls(const Config& cfg,
+    const std::vector<std::pair<std::string, std::string>>& files)
 {
+    ExpandResult result;
+
     nlohmann::json body;
     body["model"] = cfg.model;
     body["temperature"] = 0.1;
 
     nlohmann::json msgs;
     msgs.push_back({{"role", "system"}, {"content",
-        "你是一个 PKGBUILD source URL 解析器。"
-        "根据 PKGBUILD 中的变量定义，展开 source URL 中的所有 bash 变量"
-        "（如 ${pkgver}、${_pkgname}、${pkgname%-bin} 等）。"
-        "只返回展开后的 URL，每行一个，不要添加任何其他内容。"}});
+        "你是一个 PKGBUILD 分析助手。分析提供的文件，完成以下任务：\n"
+        "1. 展开所有文件中的 bash 变量（如 ${pkgver}、${_pkgname}、${pkgname%-bin} 等）\n"
+        "2. 识别 source=()、build()、package() 以及 .install 脚本中所有 curl/wget 的 URL\n"
+        "返回格式：\n"
+        "---EXPANDED---\n"
+        "[展开变量后的所有文件，保持文件名和 === 标记不变]\n"
+        "---URLS---\n"
+        "[每行一个 http/https 链接]"}});
 
     std::ostringstream user;
-    user << "PKGBUILD：\n";
-    std::istringstream stream(pkgbuild);
-    std::string line;
-    int lineno = 1;
-    while (std::getline(stream, line))
-        user << lineno++ << "│" << line << "\n";
-    user << "\n需要展开的 URL：\n";
-    for (const auto& e : entries)
-        user << "  " << e << "\n";
+    for (const auto& [name, content] : files) {
+        user << "=== " << name << " ===\n" << content << "\n\n";
+    }
     msgs.push_back({{"role", "user"}, {"content", user.str()}});
 
     body["messages"] = msgs;
     std::string resp = api_post(cfg, "/v1/chat/completions", body.dump());
     auto j = nlohmann::json::parse(resp);
-    std::string content = j["choices"][0]["message"]["content"].get<std::string>();
+    std::string full = j["choices"][0]["message"]["content"].get<std::string>();
 
-    std::vector<std::string> urls;
-    std::istringstream rs(content);
-    while (std::getline(rs, line)) {
-        if (line.empty()) continue;
-        if (line.find("http://") == 0 || line.find("https://") == 0)
-            urls.push_back(line);
+    // Parse expanded section
+    size_t expanded_end = full.find("---URLS---");
+    std::string expanded_section = (expanded_end != std::string::npos) ? full.substr(0, expanded_end) : full;
+
+    // Parse expanded files (=== name === ...)
+    std::regex file_re(R"(=== (.+?) ===\s*\n(.*?)(?=\n=== |\Z))");
+    std::sregex_iterator fit(expanded_section.begin(), expanded_section.end(), file_re);
+    for (; fit != std::sregex_iterator(); ++fit) {
+        std::string fname = (*fit)[1].str();
+        std::string fcontent = (*fit)[2].str();
+        // Remove trailing whitespace
+        while (!fcontent.empty() && (fcontent.back() == '\n' || fcontent.back() == '\r')) fcontent.pop_back();
+        if (!fname.empty())
+            result.expanded_files.emplace_back(fname, fcontent);
     }
-    return urls;
+    // Fallback: if regex didn't match, use expanded section as-is
+    if (result.expanded_files.empty() && !expanded_section.empty())
+        result.expanded_files = files;
+
+    // Parse URLs section
+    std::string url_section = (expanded_end != std::string::npos) ? full.substr(expanded_end + 9) : "";
+    std::istringstream us(url_section);
+    std::string line;
+    while (std::getline(us, line)) {
+        if (line.find("http://") == 0 || line.find("https://") == 0)
+            result.urls.push_back(line);
+    }
+
+    return result;
 }

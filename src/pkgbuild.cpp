@@ -1,5 +1,4 @@
 #include "pkgbuild.h"
-#include "ai_reviewer.h"
 #include <curl/curl.h>
 #include <iostream>
 #include <fstream>
@@ -342,34 +341,15 @@ std::vector<std::pair<std::string, std::string>> fetch_source_files(const std::s
 #endif
 }
 
-std::vector<std::pair<std::string, std::string>> fetch_source_urls(const Config& cfg, const std::string& pkgbuild) {
+std::vector<std::pair<std::string, std::string>> fetch_downloaded_urls(const Config& cfg, const std::vector<std::string>& urls) {
     std::vector<std::pair<std::string, std::string>> results;
-
-    // Parse source=() blocks
-    std::vector<std::string> raw_entries;
-    std::regex source_block(R"(source(?:_\w+)?=\(\s*([^)]*?)\s*\))");
-    std::sregex_iterator it(pkgbuild.begin(), pkgbuild.end(), source_block), end;
-    for (; it != end; ++it) {
-        std::string body = (*it)[1].str();
-        std::regex entry_re(R"(['\"]((?:[^'\"\\]|\\.)*)['\"])");
-        std::sregex_iterator eit(body.begin(), body.end(), entry_re);
-        for (; eit != std::sregex_iterator(); ++eit)
-            raw_entries.push_back((*eit)[1].str());
-    }
-
-    if (raw_entries.empty()) return results;
-
-    // Let AI resolve all URLs in one call
-    std::cout << "  正在解析 source URL 中的变量..." << std::endl;
-    auto resolved = ai_resolve_urls(cfg, pkgbuild, raw_entries);
-    if (resolved.empty()) return results;
 
     std::cout << "  正在下载外部源码..." << std::endl;
     int file_count = 0;
     const int max_downloads = 5;
 
-    for (size_t ui = 0; ui < resolved.size() && ui < (size_t)max_downloads; ui++) {
-        const std::string& url = resolved[ui];
+    for (size_t ui = 0; ui < urls.size() && ui < (size_t)max_downloads; ui++) {
+        const std::string& url = urls[ui];
         double size_mb = 0;
         std::string data;
 

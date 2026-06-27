@@ -416,10 +416,17 @@ static int run_review(const Config& cfg, const std::vector<std::string>& files) 
             }
 
             if (cfg.review_level == "deep") {
-                auto src = fetch_source_files(pkgname);
-                for (auto& f : src) review_sources.push_back(std::move(f));
-                auto urls = fetch_source_urls(cfg, content);
-                for (auto& f : urls) review_sources.push_back(std::move(f));
+                auto snap = fetch_source_files(pkgname);
+                for (auto& f : snap) review_sources.push_back(std::move(f));
+
+                std::cout << "  正在解析变量并查找下载 URL..." << std::endl;
+                auto expanded = ai_expand_and_find_urls(cfg, review_sources);
+                review_sources = std::move(expanded.expanded_files);
+
+                if (!expanded.urls.empty()) {
+                    auto downloaded = fetch_downloaded_urls(cfg, expanded.urls);
+                    for (auto& f : downloaded) review_sources.push_back(std::move(f));
+                }
             }
         }
 
@@ -716,24 +723,25 @@ int main(int argc, char* argv[]) {
 
         std::cout << "正在 AI 审查 " << p.name << "..." << std::endl;
 
-        // Collect extra files based on level
         std::vector<std::pair<std::string, std::string>> review_sources = {{"PKGBUILD", p.content}};
 
         if (level == "normal" || level == "deep") {
             auto aux = fetch_aux_files(p.name, p.content);
-            for (auto& f : aux) {
-                review_sources.push_back(std::move(f));
-            }
+            for (auto& f : aux) review_sources.push_back(std::move(f));
         }
 
         if (level == "deep") {
-            auto src = fetch_source_files(p.name);
-            for (auto& f : src) {
-                review_sources.push_back(std::move(f));
-            }
-            auto urls = fetch_source_urls(cfg, p.content);
-            for (auto& f : urls) {
-                review_sources.push_back(std::move(f));
+            auto snap = fetch_source_files(p.name);
+            for (auto& f : snap) review_sources.push_back(std::move(f));
+
+            // AI: expand variables, find all download URLs
+            std::cout << "  正在解析变量并查找下载 URL..." << std::endl;
+            auto expanded = ai_expand_and_find_urls(cfg, review_sources);
+            review_sources = std::move(expanded.expanded_files);
+
+            if (!expanded.urls.empty()) {
+                auto downloaded = fetch_downloaded_urls(cfg, expanded.urls);
+                for (auto& f : downloaded) review_sources.push_back(std::move(f));
             }
         }
 
