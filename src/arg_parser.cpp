@@ -15,6 +15,16 @@ static bool is_install_flag(const std::string& arg) {
     return false;
 }
 
+static bool is_upgrade_flag(const std::string& arg) {
+    if (arg == "--sysupgrade" || arg == "--upgrade") return true;
+    if (arg.size() >= 2 && arg[0] == '-' && arg[1] == 'S') {
+        for (char c : arg.substr(2)) {
+            if (c == 'u') return true;
+        }
+    }
+    return false;
+}
+
 static bool is_non_install_flag(const std::string& arg) {
     if (arg == "--search" || arg == "--info" || arg == "--list" ||
         arg == "--groups" || arg == "--clean" || arg == "--query" ||
@@ -72,6 +82,7 @@ ParseResult parse_args(int argc, char* argv[]) {
         }
         if (!arg.empty() && arg[0] == '-') {
             if (is_install_flag(arg)) has_install = true;
+            if (is_upgrade_flag(arg)) result.is_upgrade = true;
             if (is_non_install_flag(arg)) has_non_install = true;
         }
         filtered.push_back(argv[i]);

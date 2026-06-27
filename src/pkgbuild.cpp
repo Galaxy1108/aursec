@@ -19,7 +19,7 @@ static PkgbuildResult fetch_one(const std::string& name) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "install_aur/1.0");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aura/1.0");
     curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
 
     CURLcode res = curl_easy_perform(curl);

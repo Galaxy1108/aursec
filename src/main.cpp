@@ -7,6 +7,7 @@
 #include <iostream>
 #include <termios.h>
 #include <unistd.h>
+#include <sstream>
 #include <csignal>
 
 static std::string read_hidden(const std::string& prompt) {
@@ -47,9 +48,26 @@ static int select_option(const std::vector<std::string>& options, const std::str
     return -1;
 }
 
+static std::vector<std::string> parse_outdated_packages(const std::string& output) {
+    std::vector<std::string> pkgs;
+    std::istringstream stream(output);
+    std::string line;
+    while (std::getline(stream, line)) {
+        if (line.empty()) continue;
+        std::istringstream ls(line);
+        std::string name;
+        ls >> name;
+        if (name.empty()) continue;
+        size_t slash = name.find('/');
+        if (slash != std::string::npos) name = name.substr(slash + 1);
+        pkgs.push_back(name);
+    }
+    return pkgs;
+}
+
 static int run_init() {
     auto existing = load_config();
-    std::cout << "=== install_aur 初始化配置 ===" << std::endl;
+    std::cout << "=== aura 初始化配置 ===" << std::endl;
 
     std::string key = read_hidden("DeepSeek API Key: ");
     if (key.empty()) {
@@ -76,7 +94,7 @@ static int run_init() {
         tmp.base_url = base;
 
         save_config(tmp);
-        std::cout << "配置已保存到 ~/.config/install_aur/config.json" << std::endl;
+        std::cout << "配置已保存到 ~/.config/aura/config.json" << std::endl;
 
         std::cout << "正在发送测试审查请求..." << std::endl;
         auto result = review_pkgbuilds(tmp, {{"test", "source=(https://example.com/test.tar.gz)\nsha256sums=('SKIP')\npackage() { true; }"}});
@@ -115,14 +133,39 @@ int main(int argc, char* argv[]) {
         return exec_yay(parsed.yay_argv);
     }
 
-    if (parsed.no_ai || parsed.packages.empty()) {
+    if (parsed.no_ai) {
         curl_global_cleanup();
         return exec_yay(parsed.yay_argv);
     }
 
+    if (parsed.packages.empty()) {
+        if (parsed.is_upgrade) {
+            std::cout << "正在查询可更新的 AUR 包..." << std::endl;
+            std::vector<const char*> qargv = {"yay", "-Qua", nullptr};
+            try {
+                std::string output = exec_capture(qargv);
+                std::vector<std::string> outdated = parse_outdated_packages(output);
+                if (outdated.empty()) {
+                    std::cout << "没有需要更新的 AUR 包" << std::endl;
+                } else {
+                    std::cout << "发现 " << outdated.size() << " 个可更新 AUR 包" << std::endl;
+                    parsed.packages = std::move(outdated);
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "查询失败: " << e.what() << "，跳过 AI 审查" << std::endl;
+                curl_global_cleanup();
+                return exec_yay(parsed.yay_argv);
+            }
+        }
+        if (parsed.packages.empty()) {
+            curl_global_cleanup();
+            return exec_yay(parsed.yay_argv);
+        }
+    }
+
     Config cfg = load_config();
-    if (!cfg.loaded && !parsed.no_ai) {
-        std::cerr << "错误: 未配置 API Key。请运行 install_aur --init 配置，或使用 --no-ai 跳过审查" << std::endl;
+    if (!cfg.loaded) {
+        std::cerr << "错误: 未配置 API Key。请运行 aura --init 配置，或使用 --no-ai 跳过审查" << std::endl;
         curl_global_cleanup();
         return 1;
     }

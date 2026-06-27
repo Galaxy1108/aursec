@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <cstring>
+#include <cstdio>
 #include <stdexcept>
 
 int exec_yay(const std::vector<const char*>& argv) {
@@ -18,4 +19,21 @@ int exec_yay(const std::vector<const char*>& argv) {
     if (WIFEXITED(status)) return WEXITSTATUS(status);
     if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
     return 1;
+}
+
+std::string exec_capture(const std::vector<const char*>& argv) {
+    std::string cmd;
+    for (size_t i = 0; argv[i] != nullptr; i++) {
+        if (i > 0) cmd += ' ';
+        cmd += argv[i];
+    }
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) throw std::runtime_error("popen failed");
+    std::string result;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), pipe)) {
+        result += buf;
+    }
+    pclose(pipe);
+    return result;
 }

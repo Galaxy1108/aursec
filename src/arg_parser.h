@@ -11,6 +11,7 @@ enum class OpType {
 struct ParseResult {
     OpType type = OpType::Passthru;
     bool no_ai = false;
+    bool is_upgrade = false;
     std::vector<std::string> packages;
     std::vector<const char*> yay_argv; // null-terminated
 };
