@@ -2,14 +2,15 @@
 # Contributor: 
 
 pkgname=aursec
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="yay wrapper - AI review of PKGBUILD before every install/upgrade"
 arch=('x86_64')
 url="https://github.com/Galaxy1108/aursec"
 license=('MIT')
-depends=('yay' 'curl' 'nlohmann-json')
-makedepends=('cmake')
+depends=('yay' 'curl' 'nlohmann-json' 'openssl')
+makedepends=('cmake' 'glib2')
+optdepends=('libsecret: 系统密钥环支持')
 source=("$pkgname::git+file://${startdir}")
 sha256sums=('SKIP')
 

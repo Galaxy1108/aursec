@@ -18,7 +18,9 @@ makepkg -f
 sudo pacman -U aursec-*.pkg.tar.zst
 ```
 
-依赖: `yay`, `curl`, `nlohmann-json`
+依赖: `yay`, `curl`, `nlohmann-json`, `openssl`
+
+可选: `libsecret`（系统密钥环支持）
 
 ## 配置
 
@@ -26,7 +28,17 @@ sudo pacman -U aursec-*.pkg.tar.zst
 aursec --init
 ```
 
-交互式输入 DeepSeek API Key → 验证 → 选择模型 → 保存。
+交互式输入 DeepSeek API Key → 验证 → 选择模型 → **选择加密方式 → 保存**。
+
+### 加密方式
+
+`--init` 时会检测系统可用的加密方式并让用户选择：
+
+| 方式 | 条件 | 说明 |
+|------|------|------|
+| 系统密钥环 | libsecret 可用 (GNOME Keyring / KDE Wallet) | Key 存入受密码保护的系统密钥环 |
+| AES-256-CBC | 始终可用 | Key 加密后存入 config，密钥派生自 `/etc/machine-id` |
+| 不加密 | 始终可选择 | Key 明文存储 |
 
 环境变量优先级更高：`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `AI_MODEL`
 

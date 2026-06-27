@@ -157,6 +157,27 @@ static int run_init() {
         std::string base = read_line("Base URL", tmp.base_url);
         tmp.base_url = base;
 
+        std::vector<std::string> enc_opts;
+        if (detect_keyring()) enc_opts.push_back("系统密钥环 (libsecret)");
+        enc_opts.push_back("加密配置文件 (AES-256-CBC)");
+        enc_opts.push_back("不加密");
+
+        std::cout << CYAN "请选择加密方式：" RST << std::endl;
+        int enc_sel = select_interactive(enc_opts);
+        if (enc_sel < 0) {
+            std::cerr << "已取消" << std::endl;
+            return 1;
+        }
+
+        if (detect_keyring()) {
+            if (enc_sel == 0) tmp.enc_method = EncMethod::Keyring;
+            else if (enc_sel == 1) tmp.enc_method = EncMethod::Cipher;
+            else tmp.enc_method = EncMethod::Plain;
+        } else {
+            if (enc_sel == 0) tmp.enc_method = EncMethod::Cipher;
+            else tmp.enc_method = EncMethod::Plain;
+        }
+
         save_config(tmp);
         std::cout << "配置已保存到 ~/.config/aursec/config.json" << std::endl;
 

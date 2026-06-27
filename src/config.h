@@ -1,13 +1,19 @@
 #pragma once
 #include <string>
 
+enum class EncMethod { Plain, Cipher, Keyring };
+
 struct Config {
     std::string api_key;
     std::string base_url = "https://api.deepseek.com";
     std::string model = "deepseek-chat";
     std::string prompt_file;
+    EncMethod enc_method = EncMethod::Plain;
+    std::string key_cipher;
+    std::string key_salt;
     bool loaded = false;
 };
 
 Config load_config();
 void save_config(const Config& cfg);
+bool detect_keyring();
