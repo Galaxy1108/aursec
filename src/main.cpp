@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <sstream>
 #include <csignal>
+#include <cstdio>
 #include <iomanip>
 #include <regex>
 #include <algorithm>
@@ -339,30 +340,19 @@ static int run_init() {
 
 static std::string fetch_url(const std::string& url) {
     std::cout << "  正在下载: " << url << std::endl;
-    CURL* curl = curl_easy_init();
-    if (!curl) throw std::runtime_error("failed to init curl");
+    std::string cmd = "curl -sS -L --connect-timeout 7 --max-time 15 -o- "
+        + std::string("'") + url + std::string("'");
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) throw std::runtime_error("popen failed");
 
     std::string body;
-    auto write_cb = [](void* data, size_t size, size_t nmemb, std::string* buf) {
-        size_t total = size * nmemb;
-        buf->append(static_cast<char*>(data), total);
-        return total;
-    };
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), pipe))
+        body += buf;
 
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-
-    CURLcode res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-
-    if (res != CURLE_OK) throw std::runtime_error(std::string("下载失败: ") + curl_easy_strerror(res));
+    int status = pclose(pipe);
+    if (status != 0 || body.empty())
+        throw std::runtime_error("下载失败: curl exit code " + std::to_string(status));
     return body;
 }
 

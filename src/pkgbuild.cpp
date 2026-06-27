@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <set>
 #include <cmath>
+#include <cstdio>
 
 #define RST   "\033[0m"
 #define RED   "\033[31m"
@@ -23,26 +24,25 @@ static size_t write_cb(void* data, size_t size, size_t nmemb, std::string* buf) 
     return total;
 }
 
+static std::string popen_fetch(const std::string& url, int timeout_sec = 15) {
+    std::string cmd = "curl -sS -L --connect-timeout " + std::to_string(timeout_sec / 2)
+        + " --max-time " + std::to_string(timeout_sec) + " -o- " + url;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) throw std::runtime_error("popen failed");
+
+    std::string result;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), pipe))
+        result += buf;
+
+    int status = pclose(pipe);
+    if (status != 0 || result.empty())
+        throw std::runtime_error("curl exit code " + std::to_string(status));
+    return result;
+}
+
 static std::string curl_fetch(const std::string& url) {
-    CURL* curl = curl_easy_init();
-    if (!curl) throw std::runtime_error("failed to init curl");
-
-    std::string body;
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-
-    CURLcode res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-
-    if (res != CURLE_OK) throw std::runtime_error(std::string("fetch failed: ") + curl_easy_strerror(res));
-    return body;
+    return popen_fetch(url);
 }
 
 static bool is_text_ext(const std::string& path) {
@@ -122,31 +122,9 @@ static bool is_archive_ext(const std::string& path) {
     return false;
 }
 
-static std::string curl_fetch_with_size(const std::string& url, double& size_mb) {
-    CURL* curl = curl_easy_init();
-    if (!curl) throw std::runtime_error("failed to init curl");
-
-    std::string body;
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-    curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-
-    CURLcode res = curl_easy_perform(curl);
-    curl_off_t dl_size = 0;
-    curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &dl_size);
-    curl_easy_cleanup(curl);
-
-    size_mb = (double)dl_size / (1024.0 * 1024.0);
-
-    if (res != CURLE_OK) {
-        if (body.size() > 5 * 1024 * 1024) body.clear();
-        throw std::runtime_error(std::string("fetch failed: ") + curl_easy_strerror(res));
-    }
+static std::string popen_fetch_with_size(const std::string& url, double& size_mb) {
+    std::string body = popen_fetch(url, 30);
+    size_mb = (double)body.size() / (1024.0 * 1024.0);
     if (body.size() > 5 * 1024 * 1024) {
         body.clear();
         throw std::runtime_error("file too large (>5MB)");
@@ -389,7 +367,7 @@ std::vector<std::pair<std::string, std::string>> fetch_source_urls(const std::st
 
         try {
             std::cout << "    下载: " << url << std::endl;
-            data = curl_fetch_with_size(url, size_mb);
+            data = popen_fetch_with_size(url, size_mb);
             std::cout << "    大小: " << fmt_size(size_mb * 1024 * 1024) << std::endl;
         } catch (const std::exception& e) {
             std::cerr << RED "    下载失败: " << url << RST << std::endl;
