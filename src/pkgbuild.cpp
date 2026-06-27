@@ -34,6 +34,7 @@ static std::string curl_fetch(const std::string& url) {
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
 
     CURLcode res = curl_easy_perform(curl);
@@ -131,8 +132,7 @@ static std::string curl_fetch_with_size(const std::string& url, double& size_mb)
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
-    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-    curl_easy_setopt(curl, CURLOPT_MAXFILESIZE, 5L * 1024 * 1024); // 5MB
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
     CURLcode res = curl_easy_perform(curl);
     curl_off_t dl_size = 0;
@@ -141,7 +141,14 @@ static std::string curl_fetch_with_size(const std::string& url, double& size_mb)
 
     size_mb = (double)dl_size / (1024.0 * 1024.0);
 
-    if (res != CURLE_OK) throw std::runtime_error(std::string("fetch failed: ") + curl_easy_strerror(res));
+    if (res != CURLE_OK) {
+        if (body.size() > 5 * 1024 * 1024) body.clear();
+        throw std::runtime_error(std::string("fetch failed: ") + curl_easy_strerror(res));
+    }
+    if (body.size() > 5 * 1024 * 1024) {
+        body.clear();
+        throw std::runtime_error("file too large (>5MB)");
+    }
     return body;
 }
 
@@ -219,6 +226,7 @@ std::vector<PkgbuildResult> fetch_pkgbuilds(const std::vector<std::string>& pack
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
         CURLcode res = curl_easy_perform(curl);
         long http_code = 0;
