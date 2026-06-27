@@ -18,6 +18,9 @@ enum class OpType {
     SetConfirmReject,
     SetMaxChars,
     SetMaxFileSize,
+    AllowlistAdd,
+    AllowlistRemove,
+    AllowlistList,
 };
 
 struct ParseResult {
@@ -28,6 +31,7 @@ struct ParseResult {
     std::vector<std::string> review_files;
     std::string prompt_file_opt;
     std::string context_opt; // "--set-context <n>" value
+    std::string allow_opt;   // "--allow-add/remove <pkg>" value
     std::vector<const char*> yay_argv; // null-terminated
 };
 

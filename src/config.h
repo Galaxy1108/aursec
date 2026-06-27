@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 enum class EncMethod { Plain, Cipher, Keyring };
 
@@ -14,6 +15,7 @@ struct Config {
     int max_chars = 50000;
     int max_file_size_mb = 50;
     bool confirm_reject = true;
+    std::vector<std::string> allowlist;
     EncMethod enc_method = EncMethod::Plain;
     std::string key_cipher;
     std::string key_salt;

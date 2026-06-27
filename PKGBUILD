@@ -32,4 +32,5 @@ check() {
 package() {
     cd "$srcdir/$pkgname"
     install -Dm755 build/aursec "$pkgdir/usr/bin/aursec"
+    install -Dm644 _aursec "$pkgdir/usr/share/zsh/site-functions/_aursec"
 }

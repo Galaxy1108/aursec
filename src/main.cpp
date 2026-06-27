@@ -509,6 +509,9 @@ static int print_help() {
         "  --set-max-chars <字符数>  设置 AI 消息长度警告阈值\n"
         "  --set-max-file-size <MB>  设置下载文件大小上限\n"
         "  --set-confirm-reject true|false  设置 REJECT 时是否确认继续安装\n"
+        "  --allow-add <包名>  添加包到白名单（跳过审查）\n"
+        "  --allow-remove <包名>  从白名单移除\n"
+        "  --allow-list       列出白名单\n"
         "  --no-ai            跳过 AI 审查，直接透传 yay\n"
         "\n"
         "查看 yay 帮助: aursec --no-ai --help  或  aursec -h\n"
@@ -665,6 +668,52 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (parsed.type == OpType::AllowlistAdd) {
+        Config cfg = load_config();
+        if (parsed.allow_opt.empty()) {
+            std::cerr << "用法: aursec --allow-add <包名>" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        if (std::find(cfg.allowlist.begin(), cfg.allowlist.end(), parsed.allow_opt) == cfg.allowlist.end()) {
+            cfg.allowlist.push_back(parsed.allow_opt);
+            save_config(cfg);
+            std::cout << "已添加 " << parsed.allow_opt << " 到白名单" << std::endl;
+        } else {
+            std::cout << parsed.allow_opt << " 已在白名单中" << std::endl;
+        }
+        curl_global_cleanup();
+        return 0;
+    }
+
+    if (parsed.type == OpType::AllowlistRemove) {
+        Config cfg = load_config();
+        if (parsed.allow_opt.empty()) {
+            std::cerr << "用法: aursec --allow-remove <包名>" << std::endl;
+            curl_global_cleanup();
+            return 1;
+        }
+        auto it = std::find(cfg.allowlist.begin(), cfg.allowlist.end(), parsed.allow_opt);
+        if (it != cfg.allowlist.end()) {
+            cfg.allowlist.erase(it);
+            save_config(cfg);
+            std::cout << "已从白名单移除 " << parsed.allow_opt << std::endl;
+        } else {
+            std::cout << parsed.allow_opt << " 不在白名单中" << std::endl;
+        }
+        curl_global_cleanup();
+        return 0;
+    }
+
+    if (parsed.type == OpType::AllowlistList) {
+        Config cfg = load_config();
+        std::cout << "白名单包:" << std::endl;
+        for (const auto& pkg : cfg.allowlist)
+            std::cout << "  " << pkg << std::endl;
+        curl_global_cleanup();
+        return 0;
+    }
+
     if (parsed.type == OpType::Help) {
         int ret = print_help();
         curl_global_cleanup();
@@ -781,6 +830,12 @@ int main(int argc, char* argv[]) {
             std::cerr << YELL "  " << p.name << ": 下载失败（网络不可用），已阻止" RST << std::endl;
             rejected.push_back(p.name);
             net_errors++;
+            continue;
+        }
+
+        if (std::find(cfg.allowlist.begin(), cfg.allowlist.end(), p.name) != cfg.allowlist.end()) {
+            std::cout << "  " << p.name << ": 在白名单中，跳过审查" << std::endl;
+            approved.push_back(p.name);
             continue;
         }
 

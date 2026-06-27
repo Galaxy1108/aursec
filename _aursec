@@ -19,6 +19,9 @@ _aursec() {
     '--set-max-chars[设置 AI 消息长度警告阈值]:字符数:' \
     '--set-max-file-size[设置下载文件大小上限]:大小(MB):' \
     '--set-confirm-reject[设置 REJECT 时是否确认继续安装]:是否:(true false)' \
+    '--allow-add[添加包到白名单]:包名:' \
+    '--allow-remove[从白名单移除包]:包名:' \
+    '--allow-list[列出白名单]' \
     '*::yay 参数:->yayargs' && return 0
 
   if [[ $state == yayargs ]]; then

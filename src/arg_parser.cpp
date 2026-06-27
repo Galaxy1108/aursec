@@ -130,6 +130,22 @@ ParseResult parse_args(int argc, char* argv[]) {
                 result.context_opt = argv[i + 1];
             return result;
         }
+        if (a == "--allow-add") {
+            result.type = OpType::AllowlistAdd;
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                result.allow_opt = argv[i + 1];
+            return result;
+        }
+        if (a == "--allow-remove") {
+            result.type = OpType::AllowlistRemove;
+            if (i + 1 < argc && argv[i + 1][0] != '-')
+                result.allow_opt = argv[i + 1];
+            return result;
+        }
+        if (a == "--allow-list") {
+            result.type = OpType::AllowlistList;
+            return result;
+        }
         if (a == "--review") {
             result.type = OpType::ReviewFile;
             for (int j = i + 1; j < argc; j++) {
