@@ -67,7 +67,7 @@ static std::vector<std::string> parse_outdated_packages(const std::string& outpu
 
 static int run_init() {
     auto existing = load_config();
-    std::cout << "=== aura 初始化配置 ===" << std::endl;
+    std::cout << "=== aursec 初始化配置 ===" << std::endl;
 
     std::string key = read_hidden("DeepSeek API Key: ");
     if (key.empty()) {
@@ -94,7 +94,7 @@ static int run_init() {
         tmp.base_url = base;
 
         save_config(tmp);
-        std::cout << "配置已保存到 ~/.config/aura/config.json" << std::endl;
+        std::cout << "配置已保存到 ~/.config/aursec/config.json" << std::endl;
 
         std::cout << "正在发送测试审查请求..." << std::endl;
         auto result = review_pkgbuilds(tmp, {{"test", "source=(https://example.com/test.tar.gz)\nsha256sums=('SKIP')\npackage() { true; }"}});
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
 
     Config cfg = load_config();
     if (!cfg.loaded) {
-        std::cerr << "错误: 未配置 API Key。请运行 aura --init 配置，或使用 --no-ai 跳过审查" << std::endl;
+        std::cerr << "错误: 未配置 API Key。请运行 aursec --init 配置，或使用 --no-ai 跳过审查" << std::endl;
         curl_global_cleanup();
         return 1;
     }

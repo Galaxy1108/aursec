@@ -1,11 +1,11 @@
-# aura
+# aursec
 
 yay 的包装器，在每次安装/更新前调用 AI 审查 PKGBUILD。
 
 ## 架构
 
 ```
-aura [--no-ai] [yay 参数...]
+aursec [--no-ai] [yay 参数...]
   ├── 非安装操作 (-Ss, -Qi, -R, -F, -D 等) → 直接透传 yay, execvp 不返回
   ├── --init → 交互式配置 API Key / 模型 / Base URL
   └── 安装操作 (-S, -Su, -Syu, -U, 裸包名)
@@ -21,7 +21,7 @@ aura [--no-ai] [yay 参数...]
 ├── CMakeLists.txt          # find_package(CURL + nlohmann_json)
 ├── src/
 │   ├── main.cpp            # 入口, --init/安装/透传 三路分派
-│   ├── config.h/.cpp       # ~/.config/aura/config.json + env 覆盖
+│   ├── config.h/.cpp       # ~/.config/aursec/config.json + env 覆盖
 │   ├── arg_parser.h/.cpp   # 操作类型判断, 包名提取, --no-ai 剥离
 │   ├── pkgbuild.h/.cpp     # curl 批量下载 PKGBUILD
 │   ├── ai_reviewer.h/.cpp  # DeepSeek API 调用 + JSON 响应解析
@@ -36,9 +36,9 @@ aura [--no-ai] [yay 参数...]
 ```bash
 cmake -B build && cmake --build build        # 完整构建
 cmake --build build                           # 快速增量
-./build/test_aura                             # 运行单元测试
+./build/test_aursec                             # 运行单元测试
 makepkg -f                                    # 打包为 .pkg.tar.zst
-sudo pacman -U aura-*.pkg.tar.zst             # 安装打包产物
+sudo pacman -U aursec-*.pkg.tar.zst             # 安装打包产物
 ```
 
 依赖: `curl` (libcurl), `nlohmann-json`, `yay` — Arch 上默认都有。
@@ -46,10 +46,10 @@ sudo pacman -U aura-*.pkg.tar.zst             # 安装打包产物
 ## 配置
 
 ```bash
-aura --init            # 交互式: 输入 API Key → 验证 → 选模型 → 保存
+aursec --init            # 交互式: 输入 API Key → 验证 → 选模型 → 保存
 ```
 
-`~/.config/aura/config.json` | 环境变量 `DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / AI_MODEL` 优先级更高。
+`~/.config/aursec/config.json` | 环境变量 `DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / AI_MODEL` 优先级更高。
 
 ## 关键约束
 

@@ -31,7 +31,7 @@ static std::string api_post(const Config& cfg, const std::string& endpoint,
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aura/1.0");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
 
     CURLcode res = curl_easy_perform(curl);
     long http_code = 0;
@@ -61,7 +61,7 @@ static std::string api_get(const Config& cfg, const std::string& endpoint) {
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aura/1.0");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "aursec/1.0");
 
     CURLcode res = curl_easy_perform(curl);
     long http_code = 0;

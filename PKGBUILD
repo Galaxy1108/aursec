@@ -1,12 +1,12 @@
-# Maintainer: aura contributors
+# Maintainer: aursec contributors
 # Contributor: 
 
-pkgname=aura
+pkgname=aursec
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="yay wrapper - AI review of PKGBUILD before every install/upgrade"
 arch=('x86_64')
-url="https://github.com/user/aura"
+url="https://github.com/user/aursec"
 license=('MIT')
 depends=('yay' 'curl' 'nlohmann-json')
 makedepends=('cmake')
@@ -24,10 +24,10 @@ build() {
 
 check() {
     cd "$srcdir/$pkgname"
-    ./build/test_aura
+    ./build/test_aursec
 }
 
 package() {
     cd "$srcdir/$pkgname"
-    install -Dm755 build/aura "$pkgdir/usr/bin/aura"
+    install -Dm755 build/aursec "$pkgdir/usr/bin/aursec"
 }

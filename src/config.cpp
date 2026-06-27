@@ -14,7 +14,7 @@ static std::string home_dir() {
 }
 
 static std::string config_dir() {
-    return home_dir() + "/.config/aura";
+    return home_dir() + "/.config/aursec";
 }
 
 static std::string config_path() {
