@@ -90,6 +90,8 @@ static void popen_fetch_progress(const std::string& url, std::string& data, doub
             int fill = pct * bar_w / 100;
             std::cerr << "\r\033[K     [" << std::string(fill, '#')
                       << std::string(bar_w - fill, ' ') << "] " << pct << "%" << std::flush;
+        } else {
+            std::cerr << "\r\033[K     " << (received / (1024 * 1024)) << " MB" << std::flush;
         }
     }
 
